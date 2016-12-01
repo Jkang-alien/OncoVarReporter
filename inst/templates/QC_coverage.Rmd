@@ -1,0 +1,9 @@
+- Sequencing type: __`r toupper(report_data$sequencing_approach)`__
+- Sequencing coverage numbers:
+    * __Tumor__ : 
+        * Mean / median coverage: __`r sample_coverage_statistics$T_Mean_coverage` / `r sample_coverage_statistics$T_Median_coverage`__
+        * Fraction of target regions at 100X: __`r sample_coverage_statistics$T_target_at_coverage_100`__
+    * __Control__ : 
+        * Mean / median coverage: __`r sample_coverage_statistics$C_Mean_coverage` / `r sample_coverage_statistics$C_Median_coverage`__
+        * Fraction of target regions at 30X: __`r sample_coverage_statistics$C_target_at_coverage_30`__
+        

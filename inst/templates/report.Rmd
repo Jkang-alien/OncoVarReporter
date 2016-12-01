@@ -1,0 +1,131 @@
+---
+title: "Cancer genome sequencing report for precision oncology - `r sample_id`"
+author: "NCGC Bioinformatics - Lars B Aaasheim, Ghislain Fournous, Daniel Vodak, Sigve Nakken & Eivind Hovig"
+date: '`r strftime(Sys.time(), format = "%B %d, %Y")`'
+bibliography: bibliography.bib
+output: 
+  html_document:
+    toc: true
+    theme: default
+    number_sections: false
+    toc_float: true
+    toc_depth: 4
+    fig_width: 5
+    fig_height: 4
+params:
+  tier1_report: FALSE
+  tier2_report: FALSE
+  tier3_report: FALSE
+  tier4_report: FALSE
+  tier5_report: FALSE
+  signature_report: FALSE
+  cnv_plot: FALSE
+  cnv_report_segments: FALSE
+  cnv_report_oncogene_gain: FALSE
+  cnv_report_tsgene_loss: FALSE
+  cnv_report_biomarkers: FALSE
+  missing_signature_data: FALSE
+  show_data_sources: TRUE
+  show_coverage_stats: FALSE
+  snapshot: !r as.POSIXct("2015-01-01 12:30:00")
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = F,warning=FALSE, dpi=300)
+```
+
+## Introduction
+The tumor case was sequenced and analyzed using a tumor-normal approach. Somatic SNVs/InDels were called using both [Strelka](https://sites.google.com/site/strelkasomaticvariantcaller/home) [@Saunders2012-si] and [MuTect](http://archive.broadinstitute.org/cancer/cga/mutect) [@Cibulskis2013-nr]. SNVs that have been called by both MuTect and Strelka are annotated with __STRONG__ _CALL\_CONFIDENCE_, SNV calls made by individual algorithms only are annotated as __WEAK__. InDels are called with Strelka only, and they are thus annotated with __STRONG__ confidence. Mutational signature analysis has been done with all calls, both weak and strong.
+
+```{r conditional_print0, child='data_sources.Rmd', eval = show_data_sources}
+```
+
+## Sequencing coverage/QC
+
+```{r conditional_print_a, child='QC_coverage.Rmd', eval = show_coverage_stats}
+```
+
+## Somatic SNVs/InDels
+
+### Call statistics
+
+```{r out.width=c('400px', '400px'), fig.show='hold', echo=F}
+print(report_data$sample_stats_plot_all)
+print(report_data$sample_stats_plot_coding)
+```
+
+### Tier 1 - genomic biomarkers for diagnosis, prognosis, and drug sensitivity {.tabset}
+
+- A total of __`r nrow(report_data$variants_tier1)`__ unique, somatic variant(s) in the tumor sample can be mapped to mutation-specific genomic biomarkers in the [database for clinical interpretations of variants in cancer, CIViC](https://civic.genome.wustl.edu/#/home), with the following number of evidence items:
+    * Tier 1A: __`r nrow(report_data$clinical_evidence_items_tier1A)`__ evidence items linked to specific amino acid changes
+    * Tier 1B: __`r nrow(report_data$clinical_evidence_items_tier1B)`__ evidence items linked to codon alterations
+    * Tier 1C: __`r nrow(report_data$clinical_evidence_items_tier1C)`__ evidence items linked to exon alterations
+
+<br>
+```{r conditional_print1, child='tier1.Rmd', eval = tier1_report}
+```
+
+### Tier 2 - other cancer mutation hotspots, curated mutations or predicted driver mutations
+
+- A total of __`r nrow(report_data$variants_tier2)`__ unique, somatic variant(s) in the tumor sample are curated as disease-causing, predicted as driver mutations, or occur in previously detected mutation hotspots:
+<br>
+```{r conditional_print2, child='tier2.Rmd', eval = tier2_report}
+```
+
+### Tier 3 - other coding mutations in proto-oncogenes/tumor suppressors/cancer census genes
+
+- A total of __`r nrow(report_data$variants_tier3)`__ unique, somatic variant(s) in the tumor sample are found within known proto-oncogenes, tumor suppressor genes or cancer census genes:
+<br>
+```{r conditional_print3, child='tier3.Rmd', eval = tier3_report}
+```
+
+<br>
+
+### Tier 4 - other coding mutations
+
+- A total of __`r nrow(report_data$variants_tier4)`__ unique, somatic variant(s) are also found in the tumor sample:
+<br>
+```{r conditional_print4, child='tier4.Rmd', eval = tier4_report}
+```
+<br>
+
+### Tier 5 - non-coding mutations
+
+- A total of __`r nrow(report_data$variants_tier5)`__ unique, somatic variant(s) are also found in the tumor sample:
+<br>
+```{r conditional_print5, child='tier5.Rmd', eval = tier5_report}
+```
+<br>
+
+
+## Somatic CNA analysis
+
+A computational analysis pipeline for joint segmentation and allele-specific copy number analysis has been performed with [FACETS](https://sites.google.com/site/mskfacets/):
+
+```{r conditional_print6, child='cnv_plot.Rmd', eval = cnv_plot}
+```
+
+
+```{r conditional_print6b, child='cnv_report_segments_nondiploid.Rmd', eval = cnv_report_segments}
+```
+
+
+```{r conditional_print7, child='cnv_report_oncogene_gain.Rmd', eval = cnv_report_oncogene_gain}
+```
+
+```{r conditional_print8, child='cnv_report_tsgene_loss.Rmd', eval = cnv_report_tsgene_loss}
+```
+
+```{r conditional_print9, child='cnv_report_biomarkers.Rmd', eval = cnv_report_biomarkers}
+```
+<br>
+
+## Mutational signatures
+
+```{r conditional_print10, child='mutational_signature.Rmd', eval = signature_report}
+```
+
+```{r conditional_print11, child='limited_signature_data.Rmd', eval = missing_signature_data}
+```
+
+## References

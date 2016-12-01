@@ -1,0 +1,17 @@
+Package: OncoVarReporter
+Type: Package
+Title: Generation of precision oncology reports for cancer genomes
+Version: 0.2.0
+Author: Sigve Nakken
+Maintainer: Sigve Nakken <sigven@ifi.uio.no>
+Imports:
+    dplyr (>= 0.4.3),
+    magrittr (>= 1.5),
+    tidyr (>= 0.6.0),
+    VariantAnnotation (>= 1.18.7),
+    biomaRt (>= 2.28.0),
+    rmarkdown (>= 1.1)
+Description: More about what it does (maybe more than one line)
+License: What license is it under?
+LazyData: TRUE
+RoxygenNote: 5.0.1
