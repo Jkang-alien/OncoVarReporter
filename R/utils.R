@@ -180,15 +180,28 @@ plot_call_statistics <- function(sample_calls, title = 'Title'){
 
 cnv_segment_annotation <- function(cnv_file, format = 'facets'){
 
-  cnv_df <- read.table(file=cnv_file,header = T,stringsAsFactors = F,comment.char="")
-  cnv_df <- dplyr::mutate(cnv_df, chromosome = X.chromosome, LogR = CN_logR_median, cf = cellular_fraction_MM_EM_optimized, tmp_cnTotal = total_copy_number_MM_EM_optimized, tmp_cnMinor = minor_copy_number_MM_EM_optimized)
-  cnv_df <- as.data.frame(cnv_df %>% dplyr::rowwise() %>% dplyr::mutate(cnTotal = max(tmp_cnTotal,tmp_cnMinor,na.rm=T)))
-  cnv_df <- as.data.frame(cnv_df %>% dplyr::rowwise() %>% dplyr::mutate(cnMinor = min(tmp_cnTotal,tmp_cnMinor)))
-  cnv_df <- dplyr::select(cnv_df, -c(tmp_cnTotal,tmp_cnMinor))
-  cnv_df$LogR <- round(cnv_df$LogR, digits = 3)
-  cnv_df$cf <- round(as.numeric(cnv_df$cf), digits = 3)
-  #cnv_df$cnMajor <- cnv_df$cnTotal - cnv_df$cnMinor
-  cnv_df$chromosome <- paste0("chr",cnv_df$chromosome)
+  cnv_df <- NULL
+  if(format == 'facets'){
+    cnv_df <- read.table(file=cnv_file,header = T,stringsAsFactors = F,comment.char="")
+    cnv_df <- dplyr::mutate(cnv_df, chromosome = X.chromosome, LogR = CN_logR_median, cf = cellular_fraction_MM_EM_optimized, tmp_cnTotal = total_copy_number_MM_EM_optimized, tmp_cnMinor = minor_copy_number_MM_EM_optimized)
+    cnv_df <- as.data.frame(cnv_df %>% dplyr::rowwise() %>% dplyr::mutate(cnTotal = max(tmp_cnTotal,tmp_cnMinor,na.rm=T)))
+    cnv_df <- as.data.frame(cnv_df %>% dplyr::rowwise() %>% dplyr::mutate(cnMinor = min(tmp_cnTotal,tmp_cnMinor)))
+    cnv_df <- dplyr::select(cnv_df, -c(tmp_cnTotal,tmp_cnMinor))
+    cnv_df$LogR <- round(cnv_df$LogR, digits = 3)
+    cnv_df$cf <- round(as.numeric(cnv_df$cf), digits = 3)
+    cnv_df$chromosome <- paste0("chr",cnv_df$chromosome)
+  }
+  else{
+    if(format == 'tcga'){
+      cnv_df <- read.table(file=cnv_file,header = T,stringsAsFactors = F,comment.char="")
+      cnv_df <- dplyr::rename(cnv_df, chromosome = Chromosome, LogR = Segment_Mean, segment_start = Start, segment_end = End)
+      cnv_df <- dplyr::select(cnv_df, -c(Sample,Num_Probes)) %>% dplyr::distinct()
+      cnv_df$chromosome <- paste0("chr",cnv_df$chromosome)
+      cnv_df$cnTotal <- NA
+      cnv_df$cnMinor <- NA
+      cnv_df$cf <- NA
+    }
+  }
 
   if(nrow(cnv_df[cnv_df$chromosome == 'chr23',])){
     cnv_df[cnv_df$chromosome == 'chr23',]$chromosome <- 'chrX'
