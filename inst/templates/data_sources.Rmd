@@ -10,6 +10,7 @@ The annotated variants are based on the following underlying tools/knowledge sou
 * [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - database of clinically related variants (Nov 2016)
 * [DoCM](http://docm.genome.wustl.edu) - database of curated mutations (v3.2, April 2016)
 * [CIViC](http://civic.genome.wustl.edu) - clinical interpretations of variants in cancer (Nov 12th 2016)
+* [CBMDB](http://www.cancergenomeinterpreter.org/biomarkers) - Cancer Biomarkers database (Oct 28th 2016)
 * [IntOGen catalog of driver mutations](https://www.intogen.org/downloads) - (May 2016)
 * [Cancer Hotspots](http://cancerhotspots.org) - a resource for statistically significant mutations in cancer (2016)
 * [UniProt/SwissProt KnowledgeBase 2016_09](http://www.uniprot.org) - resource on protein sequence and functional information (Sep 2016)

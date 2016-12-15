@@ -6,7 +6,8 @@
 \usage{
 generate_project_reports(project_directory, strelka_snv_vcf_gz,
   mutect_snv_vcf_gz, strelka_indel_vcf_gz = NULL,
-  project_sample_stats = NULL, signatures.limit = 10)
+  project_sample_stats = NULL, signatures.limit = 10,
+  strong_calls_only = FALSE, project_name = "NCGC_tumor_exome")
 }
 \arguments{
 \item{project_directory}{name of roject directory}
@@ -20,6 +21,8 @@ generate_project_reports(project_directory, strelka_snv_vcf_gz,
 \item{project_sample_stats}{sample_stats data frame}
 
 \item{signatures.limit}{Number of signatures to limit mutational signature analysis}
+
+\item{strong_calls_only}{Logical indicating if report is based on strong calls only or all calls}
 }
 \value{
 p

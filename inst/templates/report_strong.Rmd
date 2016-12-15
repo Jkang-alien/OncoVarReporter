@@ -35,7 +35,7 @@ knitr::opts_chunk$set(echo = F,warning=FALSE, dpi=300)
 ```
 
 ## Introduction
-The tumor case was sequenced and analyzed using a tumor-normal approach. Somatic SNVs/InDels were called using both [Strelka](https://sites.google.com/site/strelkasomaticvariantcaller/home) [@Saunders2012-si] and [MuTect](http://archive.broadinstitute.org/cancer/cga/mutect) [@Cibulskis2013-nr]. SNVs that have been called by both MuTect and Strelka are annotated with __STRONG__ _CALL\_CONFIDENCE_, SNVs called by individual algorithms only are annotated as __WEAK__. InDels were called with Strelka only, and they are thus annotated with __STRONG__ confidence.. Mutational signature analysis has been done with all calls, both weak and strong.
+The tumor case was sequenced and analyzed using a tumor-normal approach. Somatic SNVs/InDels were called using both [Strelka](https://sites.google.com/site/strelkasomaticvariantcaller/home) [@Saunders2012-si] and [MuTect](http://archive.broadinstitute.org/cancer/cga/mutect) [@Cibulskis2013-nr]. This report is based on SNVs that have been called by both MuTect and Strelka (i.e. __STRONG__ _CALL\_CONFIDENCE_).
 
 ```{r conditional_print0, child='data_sources.Rmd', eval = show_data_sources}
 ```

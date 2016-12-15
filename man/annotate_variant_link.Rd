@@ -7,7 +7,11 @@
 annotate_variant_link(var_df, vardb = "DBSNP", linktype = "dbsource")
 }
 \arguments{
-\item{linktype}{}
+\item{var_df}{data frame with variants}
+
+\item{vardb}{type of variant database for which HTML links is to be provided}
+
+\item{linktype}{type of link to be generated}
 }
 \value{
 var_df

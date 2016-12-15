@@ -7,7 +7,9 @@
 plot_call_statistics(sample_calls, title = "Title")
 }
 \arguments{
-\item{title}{}
+\item{sample_calls}{data frame with sample variants}
+
+\item{title}{Title for plot}
 }
 \value{
 p

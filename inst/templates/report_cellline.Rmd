@@ -28,18 +28,18 @@ knitr::opts_chunk$set(echo = F,warning=FALSE, dpi=300)
 ```
 
 ## Introduction
-The tumor cell line was sequenced and analyzed against an artificial control sample (normal). Somatic SNVs/InDels were called using both [Strelka](https://sites.google.com/site/strelkasomaticvariantcaller/home) [@Saunders2012-si] and [MuTect](http://archive.broadinstitute.org/cancer/cga/mutect) [@Cibulskis2013-nr]. SNVs that have been called by both MuTect and Strelka are annotated with __STRONG__ _CALL\_CONFIDENCE_, SNV calls made by individual algorithms only are annotated as __WEAK__. InDels are called with Strelka only, and they are thus annotated with __STRONG__ confidence. 
+The tumor cell line was sequenced and analyzed against an artificial control sample (normal). Somatic SNVs/InDels were called using both [Strelka](https://sites.google.com/site/strelkasomaticvariantcaller/home) [@Saunders2012-si] and [MuTect](http://archive.broadinstitute.org/cancer/cga/mutect) [@Cibulskis2013-nr]. SNVs that have been called by both MuTect and Strelka are annotated with __STRONG__ _CALL\_CONFIDENCE_, SNVs called by individual algorithms only are annotated as __WEAK__. InDels were called with Strelka only, and they are thus annotated with __STRONG__ confidence.
 
 ### Filtering of calls
-The complete set of detected variants by MuTect and Strelka constitue a mix of both somatic and germline calls (due to the lack of a matching control sample). A filtering procedure has been set up to exclude the majority of germline variants from the result set:
+The complete set of detected variants by MuTect and Strelka constitue a mix of both somatic and germline calls (due to the lack of a matching control sample). In this report, a filtering/enrichment procedure of the result set has been set up to i) exclude the majority of germline variants, and ii) enrich for cancer-associated variation:
 
-* Exclusion of calls that coincide with germline variants found in [Exome Aggregation Consortium]((http://exac.broadinstitute.org/)) (minor allele frequency >= 0.001 in any population)
-* Exclusion of calls that coincide with germline variants found in [1000 Genomes Project](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) (minor allele frequency >= 0.01 in any population)
+* Exclusion of calls that coincide with germline variants found in [Exome Aggregation Consortium]((http://exac.broadinstitute.org/)) (minor allele frequency >= 0.1% in any population)
+* Exclusion of calls that coincide with germline variants found in [1000 Genomes Project](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) (minor allele frequency >= 1% in any population)
 * Exclusion of calls that coincide with variants found in [dbSNP build 147](http://www.ncbi.nlm.nih.gov/SNP/) (except for dbSNP variants that are registered as clinically associated ([ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/)/[Database of Curated Mutations](http://docm.genome.wustl.edu)), or registered as somatic in [COSMIC v78](http://cancer.sanger.ac.uk/cosmic/))
 
-__Note__ : The filtered set of calls are still likely to harbour germline variation, although to a much lesser extent compared to the unfiltered set. No filtering has been made with respect to sequencing depth.
+__Note__ : The filtered set of calls may still harbour germline variants, although to a much lesser extent compared to the unfiltered set. No filtering has been made with respect to sequencing depth.
 
-In this cell line report, we present the filtered, coding variant set. We focus on those that are clinically relevant and those that are most likely to contribute to carcinogenesis. __Tier 1__ constitute variants recorded as prognostic/diagnostic/drug sensitivity biomarkers in the [CIViC database](http://civic.genome.wustl.edu). __Tier 2__ includes coding variants that are found in known mutational hotspots, predicted as cancer driver mutations, or curated as disease-causing. __Tier 3__ includes other coding variants found in oncogenes, tumor suppressor genes, or cancer census genes. Finally, __Tier 4__ lists the remaining coding variants.
+Here, the filtered, coding variant set is presented. We focus on those that are clinically relevant and those that are most likely to contribute to tumorigenesis. __Tier 1__ constitute variants recorded as prognostic/diagnostic/drug sensitivity biomarkers in the [CIViC database](http://civic.genome.wustl.edu) and the [Cancer Biomarkers Database](https://www.cancergenomeinterpreter.org/biomarkers). __Tier 2__ includes coding variants that are found in known mutational hotspots, predicted as cancer driver mutations, or curated as disease-causing. __Tier 3__ includes other coding variants found in oncogenes, tumor suppressor genes, or cancer census genes. __Tier 4__ includes other coding variants (not shown here).
 
 ### Knowledge/data sources used for annotation
 ```{r conditional_print0, child='data_sources.Rmd', eval = show_data_sources}
@@ -80,12 +80,5 @@ print(report_data$sample_stats_plot_coding)
 ```{r conditional_print3, child='tier3.Rmd', eval = tier3_report}
 ```
 
-### Tier 4 - other coding mutations
-
-- A total of __`r nrow(report_data$variants_tier4)`__ unique are also found in the tumor sample:
-<br>
-```{r conditional_print4, child='tier4.Rmd', eval = tier4_report}
-```
-<br>
 
 ## References

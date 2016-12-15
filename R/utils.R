@@ -5,6 +5,7 @@ library(data.table)
 library(ggplot2)
 
 
+
 #' Function that plots call numbers
 #'
 #' @param project_directory name of roject directory
@@ -13,11 +14,12 @@ library(ggplot2)
 #' @param strelka_indel_vcf_gz name of bgzipped VCF file with annotated Strelka indels
 #' @param project_sample_stats sample_stats data frame
 #' @param signatures.limit Number of signatures to limit mutational signature analysis
+#' @param strong_calls_only Logical indicating if report is based on strong calls only or all calls
 #'
 #' @return p
 #' @export
 #'
-generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mutect_snv_vcf_gz, strelka_indel_vcf_gz = NULL, project_sample_stats = NULL, signatures.limit = 10){
+generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mutect_snv_vcf_gz, strelka_indel_vcf_gz = NULL, project_sample_stats = NULL, signatures.limit = 10, strong_calls_only = FALSE, project_name = 'NCGC_tumor_exome'){
   vcf_data_df_mutect <- OncoVarReporter::get_calls(mutect_snv_vcf_gz)
   vcf_data_df_strelka <- OncoVarReporter::get_calls(strelka_snv_vcf_gz)
   vcf_data_df_strelka_indel <- OncoVarReporter::get_calls(strelka_indel_vcf_gz)
@@ -30,6 +32,12 @@ generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mute
   vcf_data_df_mutect <- dplyr::select(vcf_data_df_mutect, dplyr::one_of(common_columns))
   vcf_data_df_strelka <- dplyr::select(vcf_data_df_strelka, dplyr::one_of(common_columns))
   vcf_data_df_strelka_indel <- dplyr::select(vcf_data_df_strelka_indel,dplyr::one_of(common_columns))
+
+  all_tier_tsv_variants <- NULL
+  all_tier_tsv_fname <- paste0(project_name,'.snvs_indels.weak_strong.tiers.tsv')
+  if(strong_calls_only == TRUE){
+    all_tier_tsv_fname <- paste0(project_name,'.snvs_indels.strong.tiers.tsv')
+  }
 
   for(sample_id in unique(vcf_data_df_strelka$VCF_SAMPLE_ID)){
     cat(sample_id,"\n")
@@ -73,9 +81,19 @@ generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mute
     }
 
     sample_calls <- rbind(strong_calls,weak_strelka_calls,weak_mutect_calls,sample_calls_strelka_indel)
+    if(strong_calls_only == TRUE){
+      sample_calls <- rbind(strong_calls, sample_calls_strelka_indel)
+    }
+
     sample_calls$OXIDATION_ARTEFACT <- NA
 
-    report_data <- OncoVarReporter::generate_report_data(sample_calls, sample_id = sample_id, minimum_n_signature_analysis = 50, signatures.limit = signatures.limit)
+    report_data <- OncoVarReporter::generate_report_data(sample_calls,
+                                                         sample_id = sample_id,
+                                                         minimum_n_signature_analysis = 50,
+                                                         signatures.limit = signatures.limit)
+    if(!is.null(report_data$tsv_variants)){
+      all_tier_tsv_variants <- rbind(all_tier_tsv_variants, report_data$tsv_variants)
+    }
     report_data$sequencing_approach <- sample_coverage_statistics$sequencing_approach
     report_data$sample_id <- sample_id
 
@@ -133,17 +151,23 @@ generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mute
     }
     show_data_sources <- TRUE
 
-    rmarkdown::render(system.file("templates","report.Rmd", package="OncoVarReporter"), output_file = paste0(sample_id,'.tumor_report.html'), output_dir = project_directory, params = list(signature_report = signature_report, tier1_report = tier1_report, tier2_report = tier2_report, tier3_report = tier3_report, tier4_report = tier4_report, tier5_report = tier5_report, cnv_report_tsgene_loss = cnv_report_tsgene_loss, cnv_report_oncogene_gain = cnv_report_oncogene_gain, cnv_plot = cnv_plot, cnv_report_segments = cnv_report_segments, cnv_report_biomarkers = cnv_report_biomarkers, show_coverage_stats = show_coverage_stats, show_data_sources = show_data_sources),quiet=T)
+    if(strong_calls_only == TRUE){
+      rmarkdown::render(system.file("templates","report_strong.Rmd", package="OncoVarReporter"), output_file = paste0(sample_id,'.strong.tumor_report.html'), output_dir = project_directory, params = list(signature_report = signature_report, tier1_report = tier1_report, tier2_report = tier2_report, tier3_report = tier3_report, tier4_report = tier4_report, tier5_report = tier5_report, cnv_report_tsgene_loss = cnv_report_tsgene_loss, cnv_report_oncogene_gain = cnv_report_oncogene_gain, cnv_plot = cnv_plot, cnv_report_segments = cnv_report_segments, cnv_report_biomarkers = cnv_report_biomarkers, show_coverage_stats = show_coverage_stats, show_data_sources = show_data_sources),quiet=T)
+    }
+    else{
+      rmarkdown::render(system.file("templates","report.Rmd", package="OncoVarReporter"), output_file = paste0(sample_id,'.strong_weak.tumor_report.html'), output_dir = project_directory, params = list(signature_report = signature_report, tier1_report = tier1_report, tier2_report = tier2_report, tier3_report = tier3_report, tier4_report = tier4_report, tier5_report = tier5_report, cnv_report_tsgene_loss = cnv_report_tsgene_loss, cnv_report_oncogene_gain = cnv_report_oncogene_gain, cnv_plot = cnv_plot, cnv_report_segments = cnv_report_segments, cnv_report_biomarkers = cnv_report_biomarkers, show_coverage_stats = show_coverage_stats, show_data_sources = show_data_sources),quiet=T)
+    }
+  }
+  if(!is.null(all_tier_tsv_variants)){
+    write.table(all_tier_tsv_variants,file=all_tier_tsv_fname, sep="\t",col.names = T,row.names = F,quote = F)
   }
 
 }
 
-
-
 #' Function that plots call numbers
 #'
-#' @param sample_calls
-#' @param title
+#' @param sample_calls data frame with sample variants
+#' @param title Title for plot
 #'
 #' @return p
 #' @export
@@ -166,7 +190,6 @@ plot_call_statistics <- function(sample_calls, title = 'Title'){
       plot.title = ggplot2::element_text(family="Helvetica",size=8,vjust=2)) + ggplot2::ylab('Count')
   return(p)
 }
-
 
 
 #' Function that annotates CNV segment files (FACETS)
@@ -198,6 +221,7 @@ cnv_segment_annotation <- function(cnv_file, format = 'facets'){
       cnv_df <- dplyr::select(cnv_df, -c(Sample,Num_Probes)) %>% dplyr::distinct()
       cnv_df$chromosome <- paste0("chr",cnv_df$chromosome)
       cnv_df$cnTotal <- NA
+      cnv_df$cnTotal <- as.integer(round((2^cnv_df$LogR) * 2, digits = 0))
       cnv_df$cnMinor <- NA
       cnv_df$cf <- NA
     }
@@ -307,37 +331,56 @@ cnv_segment_annotation <- function(cnv_file, format = 'facets'){
   return(cnv_data)
 }
 
-
-#' Function that generates tier datasets
+#' Function that generates dense and tiered annotated variant datasets
 #'
-#' @param report_data
+#' @param report_data report data structure generated from pcgr
+#' @param tier1_variants
+#' @param tier2_variants
+#' @param tier3_variants
+#' @param tier4_variants
+#' @param tier5_variants
+#' @param sample_id Sample identifier
 #'
 #' @return tsv_variants data frame with tier-annotated list of variants for tab-separated output
 #' @export
 #'
+generate_tier_tsv <- function(tier1_variants, tier2_variants, tier3_variants, tier4_variants, tier5_variants, sample_id = 'test'){
 
-generate_tier_tsv <- function(report_data){
-  tier1_tsv <- report_data$variants_tier1_tsv
+  tier1_tsv <- tier1_variants
   tsv_variants <- NULL
   if(nrow(tier1_tsv) > 0){
     tier1_tsv$TIER <- 'TIER 1'
-    tsv_variants <- rbind(tsv_variants, dplyr::select(tier1_tsv, SYMBOL,CONSEQUENCE,PROTEIN_CHANGE,GENE_NAME,PROTEIN_DOMAIN,CDS_CHANGE,EFFECT_PREDICTIONS,VEP_ALL_CONSEQUENCE,DBSNP,COSMIC,COSMIC_SITE_HISTOLOGY,CLINVAR,GENOME_VERSION,GENOMIC_CHANGE,CALL_CONFIDENCE,DP_TUMOR,AF_TUMOR,DP_NORMAL,AF_NORMAL,TIER)) %>% dplyr::distinct()
-
+    tier1_tsv$TIER_DESCRIPTION <- 'Clinical biomarker - prognostic/diagnostic/drug sensitivity/resistance'
+    tier1_tsv$VCF_SAMPLE_ID <- sample_id
+    tsv_variants <- rbind(tsv_variants, dplyr::select(tier1_tsv, dplyr::one_of(pcgr_tsv_tiered_columns))) %>% dplyr::distinct()
   }
-  tier2_tsv <- report_data$variants_tier2
+  tier2_tsv <- tier2_variants
   if(nrow(tier2_tsv) > 0){
     tier2_tsv$TIER <- 'TIER 2'
-    tsv_variants <- rbind(tsv_variants, dplyr::select(tier2_tsv, SYMBOL,CONSEQUENCE,PROTEIN_CHANGE,GENE_NAME,PROTEIN_DOMAIN,CDS_CHANGE,EFFECT_PREDICTIONS,VEP_ALL_CONSEQUENCE,DBSNP,COSMIC,COSMIC_SITE_HISTOLOGY,CLINVAR,GENOME_VERSION,GENOMIC_CHANGE,CALL_CONFIDENCE,DP_TUMOR,AF_TUMOR,DP_NORMAL,AF_NORMAL,TIER))
+    tier2_tsv$TIER_DESCRIPTION <- 'Other cancer mutation hotspot/predicted driver mutation/curated cancer-associated mutation'
+    tier2_tsv$VCF_SAMPLE_ID <- sample_id
+    tsv_variants <- rbind(tsv_variants, dplyr::select(tier2_tsv, dplyr::one_of(pcgr_tsv_tiered_columns)))
   }
-  tier3_tsv <- report_data$variants_tier3
+  tier3_tsv <- tier3_variants
   if(nrow(tier3_tsv) > 0){
     tier3_tsv$TIER <- 'TIER 3'
-    tsv_variants <- rbind(tsv_variants, dplyr::select(tier3_tsv, SYMBOL,CONSEQUENCE,PROTEIN_CHANGE,GENE_NAME,PROTEIN_DOMAIN,CDS_CHANGE,EFFECT_PREDICTIONS,VEP_ALL_CONSEQUENCE,DBSNP,COSMIC,COSMIC_SITE_HISTOLOGY,CLINVAR,GENOME_VERSION,GENOMIC_CHANGE,CALL_CONFIDENCE,DP_TUMOR,AF_TUMOR,DP_NORMAL,AF_NORMAL,TIER))
+    tier3_tsv$TIER_DESCRIPTION <- 'Other cancer census gene/proto-oncogene/tumor suppressor mutation'
+    tier3_tsv$VCF_SAMPLE_ID <- sample_id
+    tsv_variants <- rbind(tsv_variants, dplyr::select(tier3_tsv, dplyr::one_of(pcgr_tsv_tiered_columns)))
   }
-  tier4_tsv <- report_data$variants_tier4
+  tier4_tsv <- tier4_variants
   if(nrow(tier4_tsv) > 0){
     tier4_tsv$TIER <- 'TIER 4'
-    tsv_variants <- rbind(tsv_variants, dplyr::select(tier4_tsv, SYMBOL,CONSEQUENCE,PROTEIN_CHANGE,GENE_NAME,PROTEIN_DOMAIN,CDS_CHANGE,EFFECT_PREDICTIONS,VEP_ALL_CONSEQUENCE,DBSNP,COSMIC,COSMIC_SITE_HISTOLOGY,CLINVAR,GENOME_VERSION,GENOMIC_CHANGE,CALL_CONFIDENCE,DP_TUMOR,AF_TUMOR,DP_NORMAL,AF_NORMAL,TIER))
+    tier4_tsv$VCF_SAMPLE_ID <- sample_id
+    tier4_tsv$TIER_DESCRIPTION <- 'Other coding mutation'
+    tsv_variants <- rbind(tsv_variants, dplyr::select(tier4_tsv, dplyr::one_of(pcgr_tsv_tiered_columns)))
+  }
+  tier5_tsv <- tier5_variants
+  if(nrow(tier5_tsv) > 0){
+    tier5_tsv$TIER <- 'TIER 4'
+    tier5_tsv$VCF_SAMPLE_ID <- sample_id
+    tier5_tsv$TIER_DESCRIPTION <- 'Non-coding mutation'
+    tsv_variants <- rbind(tsv_variants, dplyr::select(tier5_tsv, dplyr::one_of(pcgr_tsv_tiered_columns)))
   }
   tsv_variants$COSMIC <- unlist(lapply(stringr::str_match_all(tsv_variants$COSMIC,"COSM[0-9]{1,}"),paste,collapse=","))
   tsv_variants$DBSNP <- unlist(lapply(stringr::str_match_all(tsv_variants$DBSNP,">rs[0-9]{1,}<"),paste,collapse=","))
@@ -357,8 +400,8 @@ generate_tier_tsv <- function(report_data){
 #'
 #' @param sample_calls data frame with list of variant calls
 #' @param sample_id sample identifier
-#' @minimum_n_signatuer_analysis minimun number of mutations for signature analysis
-#' @signatures.limit limit the number of possible mutational signatures
+#' @param minimum_n_signature_analysis minimum number of mutations for signature analysis
+#' @param signatures.limit limit the number of possible mutational signatures
 #'
 #' @return report_data data frame with all report elements
 #' @export
@@ -398,23 +441,31 @@ generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signa
     }
   }
 
-
-  clinical_evidence_items_tier1A <- OncoVarReporter::get_clinical_associations_civic(sample_calls_coding)
-  clinical_evidence_items_tier1B <- OncoVarReporter::get_clinical_associations_civic(sample_calls_coding, mapping = 'codon')
-  clinical_evidence_items_tier1C <- OncoVarReporter::get_clinical_associations_civic(sample_calls_coding, mapping = 'exon')
+  clinical_evidence_items_tier1A <- OncoVarReporter::get_clinical_associations_civic_cbmdb(sample_calls_coding)
+  clinical_evidence_items_tier1B <- OncoVarReporter::get_clinical_associations_civic_cbmdb(sample_calls_coding, mapping = 'codon')
+  clinical_evidence_items_tier1C <- OncoVarReporter::get_clinical_associations_civic_cbmdb(sample_calls_coding, mapping = 'exon')
   variants_tier1 <- rbind(clinical_evidence_items_tier1A,clinical_evidence_items_tier1B,clinical_evidence_items_tier1C)
   variants_tier1_tsv <- variants_tier1
+  if(nrow(clinical_evidence_items_tier1B) > 0){
+    clinical_evidence_items_tier1B <- dplyr::select(clinical_evidence_items_tier1B, -ONCOSCORE)
+  }
+  if(nrow(clinical_evidence_items_tier1A) > 0){
+    clinical_evidence_items_tier1A <- dplyr::select(clinical_evidence_items_tier1A, -ONCOSCORE)
+  }
+  if(nrow(clinical_evidence_items_tier1C) > 0){
+    clinical_evidence_items_tier1C <- dplyr::select(clinical_evidence_items_tier1C, -ONCOSCORE)
+  }
   if(nrow(variants_tier1) > 0){
     variants_tier1 <- variants_tier1 %>% dplyr::select(GENOMIC_CHANGE) %>% dplyr::distinct()
     tier1_report <- TRUE
   }
 
   ## Analyze Tier 2: curated mutations, cancer mutation hotspots and predicted driver mutations
-  tier2_tags <- c("SYMBOL","PROTEIN_CHANGE","GENE_NAME","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CANCER_MUTATION_HOTSPOT","CANCER_CENSUS_SOMATIC","INTOGEN_DRIVER_MUT","CONSEQUENCE","EFFECT_PREDICTIONS","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","DOCM_DISEASE","ANTINEOPLASTIC_DRUG_INTERACTIONS","VEP_ALL_CONSEQUENCE","GENOME_VERSION","GENOMIC_CHANGE","ONCOSCORE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
+  tier2_tags <- c("SYMBOL","ONCOSCORE","PROTEIN_CHANGE","GENE_NAME","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CANCER_MUTATION_HOTSPOT","CANCER_CENSUS_SOMATIC","INTOGEN_DRIVER_MUT","CONSEQUENCE","EFFECT_PREDICTIONS","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","DOCM_DISEASE","ANTINEOPLASTIC_DRUG_INTERACTIONS","VEP_ALL_CONSEQUENCE","GENOME_VERSION","GENOMIC_CHANGE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
   variants_tier2 <- dplyr::select(sample_calls_coding, dplyr::one_of(tier2_tags))
   variants_tier2 <- variants_tier2 %>% dplyr::filter(!is.na(INTOGEN_DRIVER_MUT) | !is.na(CANCER_MUTATION_HOTSPOT) | !is.na(DOCM_DISEASE))
   if(nrow(variants_tier1) > 0){
-    variants_tier2 <- dplyr::anti_join(variants_tier2, variants_tier1)
+    variants_tier2 <- dplyr::anti_join(variants_tier2, variants_tier1, by=c("GENOMIC_CHANGE"))
   }
   tier12 <- variants_tier1
   if(nrow(variants_tier2) > 0){
@@ -424,15 +475,14 @@ generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signa
     }
     variants_tier2 <- variants_tier2 %>% dplyr::arrange(desc(ONCOSCORE))
     tier12 <- rbind(variants_tier1,dplyr::select(variants_tier2,GENOMIC_CHANGE)) %>% dplyr::distinct()
-    variants_tier2 <- dplyr::select(variants_tier2, -ONCOSCORE)
   }
 
   ## Analyze Tier 3: coding mutations in oncogenes/tumor suppressors/cancer census genes
-  tier3_tags <- c("SYMBOL","PROTEIN_CHANGE","GENE_NAME","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CANCER_MUTATION_HOTSPOT","INTOGEN_DRIVER_MUT","CONSEQUENCE","EFFECT_PREDICTIONS","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","ANTINEOPLASTIC_DRUG_INTERACTIONS","VEP_ALL_CONSEQUENCE","GENOME_VERSION","GENOMIC_CHANGE","ONCOSCORE","ONCOGENE","TUMOR_SUPPRESSOR","CANCER_CENSUS_SOMATIC","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
+  tier3_tags <- c("SYMBOL","ONCOSCORE","PROTEIN_CHANGE","GENE_NAME","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CANCER_MUTATION_HOTSPOT","INTOGEN_DRIVER_MUT","CONSEQUENCE","EFFECT_PREDICTIONS","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","ANTINEOPLASTIC_DRUG_INTERACTIONS","VEP_ALL_CONSEQUENCE","GENOME_VERSION","GENOMIC_CHANGE","ONCOGENE","TUMOR_SUPPRESSOR","CANCER_CENSUS_SOMATIC","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
   variants_tier3 <- dplyr::select(sample_calls_coding, dplyr::one_of(tier3_tags))
   variants_tier3 <- variants_tier3 %>% dplyr::filter(!is.na(CANCER_CENSUS_SOMATIC) | ONCOGENE == TRUE | TUMOR_SUPPRESSOR == TRUE)
   if(nrow(tier12) > 0){
-    variants_tier3 <- dplyr::anti_join(variants_tier3,tier12)
+    variants_tier3 <- dplyr::anti_join(variants_tier3,tier12, by=c("GENOMIC_CHANGE"))
   }
   tier123 <- tier12
   if(nrow(variants_tier3) > 0){
@@ -442,48 +492,57 @@ generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signa
     }
     variants_tier3 <- variants_tier3 %>% dplyr::arrange(desc(ONCOSCORE))
     tier123 <- rbind(tier12,dplyr::select(variants_tier3,GENOMIC_CHANGE)) %>% dplyr::distinct()
-    variants_tier3 <- dplyr::select(variants_tier3, -ONCOSCORE)
   }
 
   ## Analyze Tier 4: Other coding mutations
-  tier4_tags <- c("SYMBOL","PROTEIN_CHANGE","GENE_NAME","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CONSEQUENCE","EFFECT_PREDICTIONS","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","ANTINEOPLASTIC_DRUG_INTERACTIONS","GENOME_VERSION","VEP_ALL_CONSEQUENCE","GENOMIC_CHANGE","ONCOSCORE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
+  tier4_tags <- c("SYMBOL","ONCOSCORE","PROTEIN_CHANGE","GENE_NAME","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CONSEQUENCE","EFFECT_PREDICTIONS","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","ANTINEOPLASTIC_DRUG_INTERACTIONS","GENOME_VERSION","VEP_ALL_CONSEQUENCE","GENOMIC_CHANGE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
   variants_tier4 <- dplyr::select(sample_calls_coding, dplyr::one_of(tier4_tags))
   if(nrow(tier123) > 0){
-    variants_tier4 <- dplyr::anti_join(variants_tier4,tier123)
+    variants_tier4 <- dplyr::anti_join(variants_tier4,tier123, by=c("GENOMIC_CHANGE"))
   }
   if(nrow(variants_tier4) > 0){
     if(nrow(variants_tier4[is.na(variants_tier4$ONCOSCORE),]) > 0){
       variants_tier4[is.na(variants_tier4$ONCOSCORE),]$ONCOSCORE <- 0
     }
     variants_tier4 <- variants_tier4 %>% dplyr::arrange(desc(ONCOSCORE))
-    variants_tier4 <- dplyr::select(variants_tier4, -ONCOSCORE)
     tier4_report <- TRUE
   }
 
 
   ## Analyze Tier 5: Non-coding mutations
-  tier5_tags <- c("SYMBOL","CONSEQUENCE","GENE_NAME","CDS_CHANGE","EFFECT_PREDICTIONS","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","ANTINEOPLASTIC_DRUG_INTERACTIONS","VEP_ALL_CONSEQUENCE","GENOME_VERSION","GENOMIC_CHANGE","ONCOSCORE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
+  tier5_tags <- c("SYMBOL","ONCOSCORE","CONSEQUENCE","PROTEIN_CHANGE","GENE_NAME","PROTEIN_DOMAIN","PROTEIN_FEATURE","DBSNP","COSMIC","CDS_CHANGE","EFFECT_PREDICTIONS","COSMIC_SITE_HISTOLOGY","CLINVAR","ANTINEOPLASTIC_DRUG_INTERACTIONS","GENOME_VERSION","VEP_ALL_CONSEQUENCE","GENOMIC_CHANGE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL","OXIDATION_ARTEFACT")
   variants_tier5 <- dplyr::select(sample_calls_noncoding, dplyr::one_of(tier5_tags))
+  #variants_tier5 <- dplyr::filter(variants_tier5, !(stringr::str_detect(CONSEQUENCE,"intron_variant|intergenic_variant") & !stringr::str_detect(CONSEQUENCE,"splice_")))
 
   if(nrow(variants_tier5) > 0){
     if(nrow(variants_tier5[is.na(variants_tier5$ONCOSCORE),]) > 0){
       variants_tier5[is.na(variants_tier5$ONCOSCORE),]$ONCOSCORE <- 0
     }
     variants_tier5 <- variants_tier5 %>% dplyr::arrange(desc(ONCOSCORE))
-    variants_tier5 <- dplyr::select(variants_tier5, -ONCOSCORE)
     tier5_report <- TRUE
   }
 
-  report_data <- list('sample_stats_plot_all' = sample_stats_plot_all, 'sample_stats_plot_coding' = sample_stats_plot_coding,'tier1_report' = tier1_report, 'tier2_report' = tier2_report, 'tier3_report' = tier3_report, 'tier4_report' = tier4_report, 'tier5_report' = tier5_report, 'clinical_evidence_items_tier1A' = clinical_evidence_items_tier1A, 'clinical_evidence_items_tier1B' = clinical_evidence_items_tier1B, 'clinical_evidence_items_tier1C' = clinical_evidence_items_tier1C, 'variants_tier1_tsv' = variants_tier1_tsv, 'variants_tier1' = variants_tier1, 'variants_tier2' = variants_tier2, 'variants_tier3' = variants_tier3, 'variants_tier4' = variants_tier4,'variants_tier5' = variants_tier5, 'signature_report' = signature_report, 'signature_call_set' = signature_call_set, 'signatures.limit' = signatures.limit, 'sample_name' = sample_id)
+  tsv_variants <- OncoVarReporter::generate_tier_tsv(variants_tier1_tsv,
+                                                     variants_tier2,
+                                                     variants_tier3,
+                                                     variants_tier4,
+                                                     variants_tier5,
+                                                     sample_id = sample_id)
+
+  variants_tier5 <- dplyr::select(variants_tier5,-c(PROTEIN_CHANGE,PROTEIN_DOMAIN,PROTEIN_FEATURE,COSMIC_SITE_HISTOLOGY,ANTINEOPLASTIC_DRUG_INTERACTIONS))
+  variants_tier2 <- dplyr::select(variants_tier5, -ONCOSCORE)
+  report_data <- list('sample_stats_plot_all' = sample_stats_plot_all, 'sample_stats_plot_coding' = sample_stats_plot_coding,'tier1_report' = tier1_report, 'tier2_report' = tier2_report, 'tier3_report' = tier3_report, 'tier4_report' = tier4_report, 'tier5_report' = tier5_report, 'clinical_evidence_items_tier1A' = clinical_evidence_items_tier1A, 'clinical_evidence_items_tier1B' = clinical_evidence_items_tier1B, 'clinical_evidence_items_tier1C' = clinical_evidence_items_tier1C, 'tsv_variants' = tsv_variants, 'variants_tier1' = variants_tier1, 'variants_tier2' = variants_tier2, 'variants_tier3' = variants_tier3, 'variants_tier4' = variants_tier4,'variants_tier5' = variants_tier5, 'signature_report' = signature_report, 'signature_call_set' = signature_call_set, 'signatures.limit' = signatures.limit, 'sample_name' = sample_id)
+
+
   return(report_data)
 
 }
 
 #' Function that adds HTML links to different genetic variant identifiers
 #'
-#' @param var_df
-#' @param vardb
-#' @param linktype
+#' @param var_df data frame with variants
+#' @param vardb type of variant database for which HTML links is to be provided
+#' @param linktype type of link to be generated
 #'
 #' @return var_df
 #' @export
@@ -576,6 +635,18 @@ annotate_variant_link <- function(var_df, vardb = "DBSNP", linktype = "dbsource"
       var_df$COSMICLINK <- NA
     }
   }
+  if(vardb == 'UCSC'){
+    if(any(grepl(paste0("^GENOMIC_CHANGE$"),names(var_df))) & any(grepl(paste0("^VAR_ID$"),names(var_df)))){
+      var_df_unique <- dplyr::select(var_df, VAR_ID, GENOMIC_CHANGE) %>% dplyr::filter(!is.na(GENOMIC_CHANGE)) %>% dplyr::distinct()
+      var_df_unique$CHROM <- stringr::str_split_fixed(var_df_unique$VAR_ID,"_",4)[,1]
+      var_df_unique$POS <- stringr::str_split_fixed(var_df_unique$VAR_ID,"_",4)[,2]
+      var_df_unique$UCSC_LINK <- paste0("<a href='",paste0('http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=',paste0('chr',var_df_unique$CHROM,':',var_df_unique$POS,'-',var_df_unique$POS)),"' target=\"_blank\">",var_df_unique$GENOMIC_CHANGE,"</a>")
+
+      var_df_links <- dplyr::select(var_df_unique, VAR_ID, UCSC_LINK)
+      var_df <- dplyr::left_join(var_df, var_df_links,by=c("VAR_ID" = "VAR_ID"))
+    }
+  }
+
 
   if(vardb == 'DGIDB'){
     if(any(grepl(paste0("^ANTINEOPLASTIC_DRUG_INTERACTION$"),names(var_df))) & any(grepl(paste0("^VAR_ID$"),names(var_df)))){
@@ -674,42 +745,46 @@ postprocess_vranges_info <- function(vr){
 #'
 add_pfam_domain_links <- function(vcf_data_df){
 
-  pfam_df <- dplyr::select(vcf_data_df,DOMAINS,VAR_ID) %>% dplyr::filter(!is.na(DOMAINS))
-  if(nrow(pfam_df) == 0){
-    return(vcf_data_df)
+  if("DOMAINS" %in% colnames(vcf_data_df) & "VAR_ID" %in% colnames(vcf_data_df)){
+    pfam_df <- dplyr::select(vcf_data_df,DOMAINS,VAR_ID) %>% dplyr::filter(!is.na(DOMAINS))
+    if(nrow(pfam_df) == 0){
+      return(vcf_data_df)
+    }
+    pfam_df <- pfam_df %>% dplyr::distinct() %>% tidyr::separate_rows(DOMAINS,sep="&") %>% dplyr::filter(stringr::str_detect(DOMAINS,"Pfam_domain"))
+    pfam_df$DOMAINS <- stringr::str_replace(pfam_df$DOMAINS,"Pfam_domain:","")
+    pfam_df <- dplyr::left_join(pfam_df,pfam_domains,by=c("DOMAINS" = "pfam_id")) %>% dplyr::select(VAR_ID,url)
+    pfam_df <- dplyr::rename(pfam_df, PD = url)
+    pfam_ret <- as.data.frame(dplyr::group_by(pfam_df, VAR_ID) %>% dplyr::summarise(PROTEIN_DOMAIN = paste(PD, collapse=", ")))
+
+    vcf_data_df <- dplyr::left_join(vcf_data_df,pfam_ret,by=c("VAR_ID" = "VAR_ID"))
   }
-  pfam_df <- pfam_df %>% dplyr::distinct() %>% tidyr::separate_rows(DOMAINS,sep="&") %>% dplyr::filter(stringr::str_detect(DOMAINS,"Pfam_domain"))
-  pfam_df$DOMAINS <- stringr::str_replace(pfam_df$DOMAINS,"Pfam_domain:","")
-  pfam_df <- dplyr::left_join(pfam_df,pfam_domains,by=c("DOMAINS" = "pfam_id")) %>% dplyr::select(VAR_ID,url)
-  pfam_df <- dplyr::rename(pfam_df, PD = url)
-  pfam_ret <- as.data.frame(dplyr::group_by(pfam_df, VAR_ID) %>% dplyr::summarise(PROTEIN_DOMAIN = paste(PD, collapse=", ")))
 
-  vcf_data_df_pfam <- dplyr::left_join(vcf_data_df,pfam_ret,by=c("VAR_ID" = "VAR_ID"))
-
-  return(vcf_data_df_pfam)
+  return(vcf_data_df)
 }
-
 
 #' Function that appends clinical annotations for somatic cancer variants
 #'
-#' @param vcf_data_df
+#' @param vcf_data_df data frame with variants
 #' @param mapping - one of 'exact' (allele-specific) or 'approximate' (codon or exon-level biomarkers)
 #' @param ncgc - logical indicating whether NCGC-specific tags are to be appended
 #'
 #' @return vcf_data_df
 #' @export
 #'
-get_clinical_associations_civic <- function(vcf_data_df, mapping = 'exact', ncgc = FALSE){
+get_clinical_associations_civic_cbmdb <- function(vcf_data_df, mapping = 'exact', variant_origin = 'Somatic Mutation', ncgc = FALSE){
 
-  tags <- c('SYMBOL','CONSEQUENCE','PROTEIN_CHANGE','GENE_NAME','PROTEIN_DOMAIN','PROTEIN_FEATURE','EFFECT_PREDICTIONS','COSMIC','COSMIC_SITE_HISTOLOGY','DBSNP','CLINVAR','EXON','CDS_CHANGE','CANCER_MUTATION_HOTSPOT','OTHER_LITERATURE_DOCM','OTHER_DISEASE_DOCM','INTOGEN_DRIVER_MUT','ANTINEOPLASTIC_DRUG_INTERACTIONS','VEP_ALL_CONSEQUENCE','CIVIC_ID','CIVIC_ID_2','GENOME_VERSION','GENOMIC_CHANGE','CALL_CONFIDENCE','DP_TUMOR','AF_TUMOR','DP_NORMAL','AF_NORMAL')
-  if(ncgc == TRUE){
-    tags <- c('SYMBOL','CONSEQUENCE','PROTEIN_CHANGE','GENE_NAME','PROTEIN_DOMAIN','PROTEIN_FEATURE','EFFECT_PREDICTIONS','COSMIC','COSMIC_SITE_HISTOLOGY','DBSNP','CLINVAR','EXON','CDS_CHANGE','CANCER_MUTATION_HOTSPOT','OTHER_LITERATURE_DOCM','OTHER_DISEASE_DOCM','INTOGEN_DRIVER_MUT','ANTINEOPLASTIC_DRUG_INTERACTIONS','VEP_ALL_CONSEQUENCE','CIVIC_ID','CIVIC_ID_2','GENOME_VERSION','GENOMIC_CHANGE','CALL_CONFIDENCE','DP_TUMOR','AF_TUMOR','DP_NORMAL','AF_NORMAL')
-  }
+  tags <- c('SYMBOL','ONCOSCORE','CONSEQUENCE','PROTEIN_CHANGE','GENE_NAME','PROTEIN_DOMAIN','PROTEIN_FEATURE','EFFECT_PREDICTIONS','COSMIC','COSMIC_SITE_HISTOLOGY','DBSNP','CLINVAR','EXON','CDS_CHANGE','CANCER_MUTATION_HOTSPOT','OTHER_LITERATURE_DOCM','OTHER_DISEASE_DOCM','INTOGEN_DRIVER_MUT','ANTINEOPLASTIC_DRUG_INTERACTIONS','VEP_ALL_CONSEQUENCE','CIVIC_ID','CIVIC_ID_2','CBMDB_ID','GENOME_VERSION','GENOMIC_CHANGE','CALL_CONFIDENCE','DP_TUMOR','AF_TUMOR','DP_NORMAL','AF_NORMAL')
   if("pubmed_html_link" %in% colnames(civic_biomarkers)){
     civic_biomarkers <- dplyr::rename(civic_biomarkers, citation = pubmed_html_link)
   }
   if("evidence_description" %in% colnames(civic_biomarkers)){
     civic_biomarkers <- dplyr::rename(civic_biomarkers, description = evidence_description)
+  }
+  if("pubmed_html_link" %in% colnames(cbmdb_biomarkers)){
+    cbmdb_biomarkers <- dplyr::rename(cbmdb_biomarkers, citation = pubmed_html_link)
+  }
+  if("evidence_description" %in% colnames(cbmdb_biomarkers)){
+    cbmdb_biomarkers <- dplyr::rename(cbmdb_biomarkers, description = evidence_description)
   }
   clinical_evidence_items <- data.frame()
   if(mapping == 'exact'){
@@ -719,11 +794,23 @@ get_clinical_associations_civic <- function(vcf_data_df, mapping = 'exact', ncgc
       tmp <- tmp %>% tidyr::separate_rows(CIVIC_ID,sep=",")
       vcf_data_df_civic <- merge(tmp,dplyr::select(vcf_data_df_civic,-c(CIVIC_ID)),by.x = "VAR_ID",by.y = "VAR_ID")
       civic_calls <- dplyr::select(vcf_data_df_civic,dplyr::one_of(tags))
-      clinical_evidence_items <- dplyr::left_join(civic_calls,dplyr::filter(dplyr::select(civic_biomarkers,-c(civic_exon,civic_consequence)),alteration_type == 'MUT'),by=c("CIVIC_ID" = "civic_id"))
-      names(clinical_evidence_items) <- toupper(names(clinical_evidence_items))
-      clinical_evidence_items$BIOMARKER_MAPPING <- 'exact'
+      eitems <- dplyr::left_join(civic_calls,dplyr::filter(dplyr::select(civic_biomarkers,-c(civic_exon,civic_consequence)),alteration_type == 'MUT'),by=c("CIVIC_ID" = "civic_id"))
+      names(eitems) <- toupper(names(eitems))
+      eitems$BIOMARKER_MAPPING <- 'exact'
+      clinical_evidence_items <- rbind(clinical_evidence_items, eitems)
     }
-
+    vcf_data_df_cbmdb <- vcf_data_df %>% dplyr::filter(is.na(CIVIC_ID) & !is.na(CBMDB_ID))
+    if(nrow(vcf_data_df_cbmdb) > 0){
+      tmp <- dplyr::select(vcf_data_df_cbmdb,CBMDB_ID,VAR_ID)
+      tmp <- tmp %>% tidyr::separate_rows(CBMDB_ID,sep=",")
+      tmp$CBMDB_ID <- as.integer(tmp$CBMDB_ID)
+      vcf_data_df_cbmdb <- merge(tmp,dplyr::select(vcf_data_df_cbmdb,-c(CBMDB_ID)),by.x = "VAR_ID",by.y = "VAR_ID")
+      cbmdb_calls <- dplyr::select(vcf_data_df_cbmdb,dplyr::one_of(tags))
+      eitems <- dplyr::left_join(cbmdb_calls,dplyr::filter(dplyr::select(cbmdb_biomarkers,-c(drug_family,transvar_id)),alteration_type == 'MUT'),by=c("CBMDB_ID" = "CBMDB_ID"))
+      names(eitems) <- toupper(names(eitems))
+      eitems$BIOMARKER_MAPPING <- 'exact'
+      clinical_evidence_items <- rbind(clinical_evidence_items, eitems)
+    }
   }
   else{
     vcf_data_df_civic <- vcf_data_df %>% dplyr::filter(!is.na(CIVIC_ID_2))
@@ -752,12 +839,10 @@ get_clinical_associations_civic <- function(vcf_data_df, mapping = 'exact', ncgc
               names(clinical_evidence_items) <- toupper(names(clinical_evidence_items))
             }
             else{
-              #cat('No clinical evidence items associated with gene codons .. ',sep='\n')
               clinical_evidence_items <- data.frame()
             }
           }
           else{
-            #cat('No clinical evidence items associated with protein codons .. ',sep='\n')
             clinical_evidence_items <- data.frame()
           }
         }
@@ -772,12 +857,10 @@ get_clinical_associations_civic <- function(vcf_data_df, mapping = 'exact', ncgc
               names(clinical_evidence_items) <- toupper(names(clinical_evidence_items))
             }
             else{
-              #cat('No clinical evidence items associated with gene exons .. ',sep='\n')
               clinical_evidence_items <- data.frame()
             }
           }
           else{
-            #cat('No clinical evidence items associated with gene exons .. ',sep='\n')
             clinical_evidence_items <- data.frame()
           }
         }
@@ -787,15 +870,10 @@ get_clinical_associations_civic <- function(vcf_data_df, mapping = 'exact', ncgc
   }
 
   if(nrow(clinical_evidence_items) > 0){
-    if(ncgc == TRUE){
-      clinical_evidence_items <- clinical_evidence_items[,c("SYMBOL","PROTEIN_CHANGE","CLINICAL_SIGNIFICANCE","EVIDENCE_LEVEL","EVIDENCE_TYPE","EVIDENCE_DIRECTION","DISEASE_NAME","DESCRIPTION","GENE_NAME","CITATION","DRUG_NAMES","RATING","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CANCER_MUTATION_HOTSPOT",'OTHER_LITERATURE_DOCM','OTHER_DISEASE_DOCM',"INTOGEN_DRIVER_MUT","CONSEQUENCE","EFFECT_PREDICTIONS","VEP_ALL_CONSEQUENCE","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","GENOME_VERSION","GENOMIC_CHANGE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL")]
-    }
-    else{
-      clinical_evidence_items <- clinical_evidence_items[,c("SYMBOL","PROTEIN_CHANGE","CLINICAL_SIGNIFICANCE","EVIDENCE_LEVEL","EVIDENCE_TYPE","EVIDENCE_DIRECTION","DISEASE_NAME","DESCRIPTION","GENE_NAME","CITATION","DRUG_NAMES","RATING","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CANCER_MUTATION_HOTSPOT",'OTHER_LITERATURE_DOCM','OTHER_DISEASE_DOCM',"INTOGEN_DRIVER_MUT","CONSEQUENCE","EFFECT_PREDICTIONS","VEP_ALL_CONSEQUENCE","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","GENOME_VERSION","GENOMIC_CHANGE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL")]
-    }
+    clinical_evidence_items <- clinical_evidence_items[,c("SYMBOL","PROTEIN_CHANGE","CLINICAL_SIGNIFICANCE","EVIDENCE_LEVEL","EVIDENCE_TYPE","EVIDENCE_DIRECTION","DISEASE_NAME","DESCRIPTION","GENE_NAME","CITATION","DRUG_NAMES","RATING","PROTEIN_DOMAIN","PROTEIN_FEATURE","CDS_CHANGE","CANCER_MUTATION_HOTSPOT",'OTHER_LITERATURE_DOCM','OTHER_DISEASE_DOCM',"INTOGEN_DRIVER_MUT","CONSEQUENCE","EFFECT_PREDICTIONS","VEP_ALL_CONSEQUENCE","DBSNP","COSMIC","COSMIC_SITE_HISTOLOGY","CLINVAR","GENOME_VERSION","GENOMIC_CHANGE","ONCOSCORE","CALL_CONFIDENCE","DP_TUMOR","AF_TUMOR","DP_NORMAL","AF_NORMAL")]
     unique_variants <- clinical_evidence_items %>% dplyr::select(SYMBOL,CONSEQUENCE,PROTEIN_CHANGE,CDS_CHANGE) %>% dplyr::distinct()
     clinical_evidence_items <- clinical_evidence_items %>% dplyr::arrange(EVIDENCE_LEVEL,RATING)
-    cat(nrow(clinical_evidence_items),' clinical evidence items found .. (',nrow(unique_variants),' unique variants), mapping = ',mapping,'\n')
+    cat(nrow(clinical_evidence_items),' clinical evidence items found .. (',nrow(unique_variants),' unique variants), mapping = ',mapping,'\n',sep="")
     cat('Underlying variants:','\n')
     for(i in 1:nrow(unique_variants)){
       cat(paste(unique_variants[i,],collapse=" "),'\n')
@@ -817,10 +895,19 @@ get_clinical_associations_civic <- function(vcf_data_df, mapping = 'exact', ncgc
 #' @export
 #'
 add_read_support <- function(vcf_data_df){
+  for(v in c('DP_TUMOR','AF_TUMOR','DP_NORMAL','AF_NORMAL')){
+    vcf_data_df[v] <- NA
+  }
   if(!is.null(vcf_data_df$ADT) && !is.null(vcf_data_df$ADC)){
     tmp_tumor <- dplyr::select(tidyr::separate(vcf_data_df,ADT, c('refn','altn'),convert=T), refn, altn)
     tmp_normal <- dplyr::select(tidyr::separate(vcf_data_df,ADC, c('refn','altn'),convert=T), refn, altn)
+
+    ## for variants called in which alternate and reference allele make up a fraction of total read depth
+    tmp_tumor_dp <- as.integer(vcf_data_df$DPT)
     vcf_data_df$DP_TUMOR <- tmp_tumor$refn + tmp_tumor$altn
+    tmp2 <- as.data.frame(vcf_data_df %>% dplyr::rowwise() %>% dplyr::mutate(DP_TUMOR_REVISED = max(DP_TUMOR,DPT,na.rm=T)))
+    vcf_data_df$DP_TUMOR <- tmp2$DP_TUMOR_REVISED
+
     vcf_data_df$AF_TUMOR <- round(tmp_tumor$altn / vcf_data_df$DP_TUMOR, digits=4)
     vcf_data_df$DP_NORMAL <- tmp_normal$refn + tmp_normal$altn
     vcf_data_df$AF_NORMAL <- round(tmp_normal$altn / vcf_data_df$DP_NORMAL, digits=4)
@@ -841,16 +928,18 @@ add_swissprot_feature_descriptions <- function(vcf_data_df){
   swissprot_features$UNIPROT_FEATURE <- paste(paste(swissprot_features$uniprot_id,swissprot_features$feature_type,sep=":"),paste(swissprot_features$aa_start,swissprot_features$aa_stop,sep="-"),sep=":")
   swissprot_features$PF <- paste(paste(swissprot_features$type_description,paste(swissprot_features$aa_start,swissprot_features$aa_stop,sep="-"),sep=":"),swissprot_features$description,sep=":")
 
-  feature_df <- dplyr::select(vcf_data_df,UNIPROT_FEATURE,VAR_ID) %>% dplyr::distinct()
-  if(nrow(feature_df) == 0){
-    return(vcf_data_df)
-  }
-  feature_df <- feature_df %>% tidyr::separate_rows(UNIPROT_FEATURE,sep="&")
-  feature_df <- as.data.frame(dplyr::left_join(feature_df,dplyr::select(swissprot_features,UNIPROT_FEATURE,PF),by=c("UNIPROT_FEATURE")))
-  feature_df <- as.data.frame(dplyr::group_by(feature_df, VAR_ID) %>% dplyr::summarise(PROTEIN_FEATURE = paste(PF, collapse=", ")))
-  feature_df[feature_df$PROTEIN_FEATURE == "NA",]$PROTEIN_FEATURE <- NA
+  if("UNIPROT_FEATURE" %in% colnames(vcf_data_df) & "VAR_ID" %in% colnames(vcf_data_df)){
+    feature_df <- dplyr::select(vcf_data_df,UNIPROT_FEATURE,VAR_ID) %>% dplyr::distinct()
+    if(nrow(feature_df) == 0){
+      return(vcf_data_df)
+    }
+    feature_df <- feature_df %>% tidyr::separate_rows(UNIPROT_FEATURE,sep="&")
+    feature_df <- as.data.frame(dplyr::left_join(feature_df,dplyr::select(swissprot_features,UNIPROT_FEATURE,PF),by=c("UNIPROT_FEATURE")))
+    feature_df <- as.data.frame(dplyr::group_by(feature_df, VAR_ID) %>% dplyr::summarise(PROTEIN_FEATURE = paste(PF, collapse=", ")))
+    feature_df[feature_df$PROTEIN_FEATURE == "NA",]$PROTEIN_FEATURE <- NA
 
-  vcf_data_df <- dplyr::left_join(dplyr::select(vcf_data_df,-UNIPROT_FEATURE),feature_df, by=c("VAR_ID" = "VAR_ID"))
+    vcf_data_df <- dplyr::left_join(dplyr::select(vcf_data_df,-UNIPROT_FEATURE),feature_df, by=c("VAR_ID" = "VAR_ID"))
+  }
 
   return(vcf_data_df)
 
@@ -864,8 +953,8 @@ add_swissprot_feature_descriptions <- function(vcf_data_df){
 #' @export
 #'
 get_calls <- function(vcf_gz_file){
-  vcf_data_vr <- VariantAnnotation::readVcfAsVRanges(vcf_gz_file,"hg19")
-  vcf_data_vr <- vcf_data_vr[!(vcf_data_vr$GT == '.'),]
+  vcf_data_vr <- VariantAnnotation::readVcfAsVRanges(vcf_gz_file,genome = "hg19")
+  vcf_data_vr <- vcf_data_vr[!is.na(vcf_data_vr$GT) & !(vcf_data_vr$GT == '.'),]
   vcf_data_vr <- OncoVarReporter::postprocess_vranges_info(vcf_data_vr)
 
   vcf_data_df <- as.data.frame(vcf_data_vr)
@@ -923,6 +1012,10 @@ get_calls <- function(vcf_gz_file){
     vcf_data_df <- OncoVarReporter::annotate_variant_link(vcf_data_df, vardb = 'DBSNP')
     vcf_data_df <- dplyr::rename(vcf_data_df, DBSNP = DBSNPLINK)
   }
+  #if(!("GENOMIC_CHANGE" %in% colnames(vcf_data_df))){
+  #vcf_data_df <- OncoVarReporter::annotate_variant_link(vcf_data_df, vardb = 'UCSC')
+  #vcf_data_df <- dplyr::rename(vcf_data_df, GENOMIC_CHANGE = UCSC_LINK)
+
   if(!("CLINVAR" %in% colnames(vcf_data_df))){
     vcf_data_df <- OncoVarReporter::annotate_variant_link(vcf_data_df, vardb = 'CLINVAR')
     vcf_data_df <- dplyr::rename(vcf_data_df, CLINVAR = CLINVARLINK)

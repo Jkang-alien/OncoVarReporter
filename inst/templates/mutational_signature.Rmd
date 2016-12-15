@@ -12,13 +12,22 @@ Given an input tumor profile and reference input signatures (i.e. [30 mutational
 mut_signature_contributions <- somvaR::signature_contributions_single_sample(report_data$signature_call_set, sample_name = report_data$sample_id, signatures.limit = report_data$signatures.limit)
 
 signature_columns <- as.numeric(stringr::str_replace(as.character(mut_signature_contributions$which_signatures_df[mut_signature_contributions$which_signatures_df$signature_id != 'unknown',]$signature_id),"S",""))
+
+weight_df <- data.frame('Signature_ID' = as.character(mut_signature_contributions$which_signatures_df$signature_id), 'Weight' = round(as.numeric(mut_signature_contributions$which_signatures_df$weight),digits=3), stringsAsFactors = F)
+
+cancer_types_aetiologies <- signatures_aetiologies[signature_columns,]
+cancer_types_aetiologies <- dplyr::left_join(cancer_types_aetiologies,weight_df,by=c("Signature_ID")) %>% dplyr::arrange(desc(Weight))
+cancer_types_aetiologies <- cancer_types_aetiologies[,c("Signature_ID","Weight","Cancer_types","Proposed_aetiology","Comments")]
+
 ```
 
-```{r sigplot, echo=F, fig.width=12,fig.height = 8}
+```{r sigplot, echo=F, fig.width=12,fig.height = 11}
 deconstructSigs::plotSignatures(mut_signature_contributions$which_signatures_obj)
+```
+
+```{r sigpie, echo=F, fig.width=12,fig.height = 6}
 deconstructSigs::makePie(mut_signature_contributions$which_signatures_obj)
 ```
-
 
 <br><br>
 
@@ -27,6 +36,6 @@ deconstructSigs::makePie(mut_signature_contributions$which_signatures_obj)
 <br>
 ```{r aetiologies, echo=F}
 myOptions <- list(paging = F,pageLength=10, searching=F,caching=F)
-DT::datatable(signatures_aetiologies[signature_columns,],options = myOptions)
+DT::datatable(cancer_types_aetiologies,options = myOptions, extensions = 'Responsive')
 ```
 <br>

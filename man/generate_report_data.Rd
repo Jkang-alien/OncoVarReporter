@@ -11,6 +11,10 @@ generate_report_data(sample_calls, sample_id = NULL,
 \item{sample_calls}{data frame with list of variant calls}
 
 \item{sample_id}{sample identifier}
+
+\item{minimum_n_signature_analysis}{minimum number of mutations for signature analysis}
+
+\item{signatures.limit}{limit the number of possible mutational signatures}
 }
 \value{
 report_data data frame with all report elements

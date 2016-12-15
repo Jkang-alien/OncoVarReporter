@@ -10,7 +10,7 @@ if(nrow(report_data$clinical_evidence_items_tier1A) > 0){
   myOptions <- list(paging = T,pageLength=10, searching=T,caching=F)
   
   DT::datatable(report_data$clinical_evidence_items_tier1A, options = myOptions, escape=F, extensions = "Responsive") %>%
-  DT::formatStyle('EVIDENCE_LEVEL', backgroundColor = DT::styleEqual(c('A: Validated','B: Clinical evidence','C: Case study','D: Preclinical evidence','E: Indirect evidence'), c("#009E73","#56B4E9", "#0072B2","#E69F00", "#F0E442")))
+  DT::formatStyle('EVIDENCE_LEVEL', backgroundColor = DT::styleEqual(c('A: Validated','A: FDA/NCCN/ELN guidelines','B: Clinical evidence','B1: Clinical evidence: late trials','C: Case study','D: Preclinical evidence','E: Indirect evidence'), c("#009E73","#009E73","#56B4E9","#56B4E9", "#0072B2","#E69F00", "#F0E442")))
 }
 ```
 
@@ -24,7 +24,7 @@ if(nrow(report_data$clinical_evidence_items_tier1B) > 0){
   myOptions <- list(paging = T,pageLength=10, searching=T,caching=F)
 
   DT::datatable(report_data$clinical_evidence_items_tier1B, options = myOptions, escape=F, extensions = "Responsive") %>%
-  DT::formatStyle('EVIDENCE_LEVEL', backgroundColor = DT::styleEqual(c('A: Validated','B: Clinical evidence','C: Case study','D: Preclinical evidence','E: Indirect evidence'), c("#009E73","#56B4E9", "#0072B2","#E69F00", "#F0E442")))
+  DT::formatStyle('EVIDENCE_LEVEL', backgroundColor = DT::styleEqual(c('A: Validated','A: FDA/NCCN/ELN guidelines','B: Clinical evidence','B1: Clinical evidence: late trials','C: Case study','D: Preclinical evidence','E: Indirect evidence'), c("#009E73","#009E73","#56B4E9","#56B4E9", "#0072B2","#E69F00", "#F0E442")))
 }
 ```
 
@@ -38,7 +38,7 @@ if(nrow(report_data$clinical_evidence_items_tier1C) > 0){
   myOptions <- list(paging = T,pageLength=10, searching=T,caching=F)
 
   DT::datatable(report_data$clinical_evidence_items_tier1C, options = myOptions, escape=F, extensions = "Responsive") %>%
-  DT::formatStyle('EVIDENCE_LEVEL', backgroundColor = DT::styleEqual(c('A: Validated','B: Clinical evidence','C: Case study','D: Preclinical evidence','E: Indirect evidence'), c("#009E73","#56B4E9", "#0072B2","#E69F00", "#F0E442")))
+  DT::formatStyle('EVIDENCE_LEVEL', backgroundColor = DT::styleEqual(c('A: Validated','A: FDA/NCCN/ELN guidelines','B: Clinical evidence','B1: Clinical evidence: late trials','C: Case study','D: Preclinical evidence','E: Indirect evidence'), c("#009E73","#009E73","#56B4E9","#56B4E9", "#0072B2","#E69F00", "#F0E442")))
 }
 ```
 

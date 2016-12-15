@@ -26,6 +26,10 @@ devtools::use_data(clinvar,overwrite=T)
 civic_biomarkers <- read.table(file="data-raw/civic.biomarkers.tsv",sep="\t",na.strings = c("NA"),stringsAsFactors = F,header=T,comment.char="#",quote="")
 devtools::use_data(civic_biomarkers,overwrite=T)
 
+cbmdb_biomarkers <- read.table(file="data-raw/cbmdb.biomarkers.tsv",sep="\t",na.strings = c("NA"),stringsAsFactors = F,header=T,comment.char="#",quote="")
+devtools::use_data(cbmdb_biomarkers,overwrite=T)
+
+
 ### GENE/TRANSCRIPT ANNOTATIONS AND X-REFS
 
 gene_xref <- read.table(gzfile("data-raw/gene.transcript.onco_xref.GRCh37.tsv.gz"),header=T,stringsAsFactors = F,quote="",sep="\t",na.strings=c("","NA"),comment.char="#")
@@ -101,4 +105,30 @@ devtools::use_data(kegg_pathway, overwrite=T)
 devtools::use_data(kegg_disease, overwrite=T)
 devtools::use_data(kegg_pathway_gene, overwrite=T)
 devtools::use_data(kegg_pathway_disease, overwrite=T)
+
+pcgr_tsv_tiered_columns <- c('GENOMIC_CHANGE',
+                             'GENOME_VERSION',
+                             'VCF_SAMPLE_ID',
+                             'SYMBOL',
+                             'ONCOSCORE',
+                             'CONSEQUENCE',
+                             'PROTEIN_CHANGE',
+                             'GENE_NAME',
+                             'PROTEIN_DOMAIN',
+                             'CDS_CHANGE',
+                             'EFFECT_PREDICTIONS',
+                             'VEP_ALL_CONSEQUENCE',
+                             'DBSNP',
+                             'COSMIC',
+                             'COSMIC_SITE_HISTOLOGY',
+                             'CLINVAR',
+                             'CALL_CONFIDENCE',
+                             'DP_TUMOR',
+                             'AF_TUMOR',
+                             'DP_NORMAL',
+                             'AF_NORMAL',
+                             'TIER',
+                             'TIER_DESCRIPTION')
+
+devtools::use_data(pcgr_tsv_tiered_columns, overwrite=T)
 

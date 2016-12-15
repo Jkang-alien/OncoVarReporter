@@ -2,17 +2,20 @@
 % Please edit documentation in R/utils.R
 \name{generate_tier_tsv}
 \alias{generate_tier_tsv}
-\title{Function that generates tier datasets}
+\title{Function that generates dense and tiered annotated variant datasets}
 \usage{
-generate_tier_tsv(report_data)
+generate_tier_tsv(tier1_variants, tier2_variants, tier3_variants,
+  tier4_variants, tier5_variants, sample_id = "test")
 }
 \arguments{
-\item{report_data}{}
+\item{sample_id}{Sample identifier}
+
+\item{report_data}{report data structure generated from pcgr}
 }
 \value{
 tsv_variants data frame with tier-annotated list of variants for tab-separated output
 }
 \description{
-Function that generates tier datasets
+Function that generates dense and tiered annotated variant datasets
 }
 
