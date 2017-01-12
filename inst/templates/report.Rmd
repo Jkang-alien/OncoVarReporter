@@ -6,10 +6,12 @@ bibliography: bibliography.bib
 output: 
   html_document:
     toc: true
+    toc_depth: 4
     theme: default
     number_sections: false
-    toc_float: true
-    toc_depth: 4
+    toc_float: 
+      collapsed: true
+      smooth_scroll: false
     fig_width: 5
     fig_height: 4
 params:
@@ -27,20 +29,18 @@ params:
   missing_signature_data: FALSE
   show_data_sources: TRUE
   show_coverage_stats: FALSE
-  snapshot: !r as.POSIXct("2015-01-01 12:30:00")
 ---
+`r library(deconstructSigs)`
 
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(echo = F,warning=FALSE, dpi=300)
 ```
 
 ## Introduction
-The tumor case was sequenced and analyzed using a tumor-normal approach. Somatic SNVs/InDels were called using both [Strelka](https://sites.google.com/site/strelkasomaticvariantcaller/home) [@Saunders2012-si] and [MuTect](http://archive.broadinstitute.org/cancer/cga/mutect) [@Cibulskis2013-nr]. SNVs that have been called by both MuTect and Strelka are annotated with __STRONG__ _CALL\_CONFIDENCE_, SNVs called by individual algorithms only are annotated as __WEAK__. InDels were called with Strelka only, and they are thus annotated with __STRONG__ confidence.. Mutational signature analysis has been done with all calls, both weak and strong.
+The tumor case was sequenced and analyzed using a tumor-normal approach. Somatic SNVs/InDels were called using both [Strelka](https://sites.google.com/site/strelkasomaticvariantcaller/home) [@Saunders2012-si] and [MuTect](http://archive.broadinstitute.org/cancer/cga/mutect) [@Cibulskis2013-nr]. SNVs that have been called by both MuTect and Strelka are annotated with __STRONG__ _CALL\_CONFIDENCE_, SNVs called by individual algorithms only are annotated as __WEAK__. InDels were called with Strelka only, and they are thus annotated with __STRONG__ confidence. Mutational signature analysis has been done with all calls, both weak and strong.
 
 ```{r conditional_print0, child='data_sources.Rmd', eval = show_data_sources}
 ```
-
-## Sequencing coverage/QC
 
 ```{r conditional_print_a, child='QC_coverage.Rmd', eval = show_coverage_stats}
 ```
@@ -98,10 +98,6 @@ print(report_data$sample_stats_plot_coding)
 <br>
 
 
-## Somatic CNA analysis
-
-A computational analysis pipeline for joint segmentation and allele-specific copy number analysis has been performed with [FACETS](https://sites.google.com/site/mskfacets/):
-
 ```{r conditional_print6, child='cnv_plot.Rmd', eval = cnv_plot}
 ```
 
@@ -119,8 +115,6 @@ A computational analysis pipeline for joint segmentation and allele-specific cop
 ```{r conditional_print9, child='cnv_report_biomarkers.Rmd', eval = cnv_report_biomarkers}
 ```
 <br>
-
-## Mutational signatures
 
 ```{r conditional_print10, child='mutational_signature.Rmd', eval = signature_report}
 ```

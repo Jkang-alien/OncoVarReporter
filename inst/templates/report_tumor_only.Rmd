@@ -60,9 +60,9 @@ Total number of (unfiltered) calls: __`r report_data$unfiltered_n`__
 
 Number of calls remaining after successive filtering steps:
 
-1. ExAC filtering (MAF in any population > 0.1%): __`r report_data$filter1_n`__ (__`r report_data$filter1_frac`__ % of all calls)
-2. 1000 Genomes Project filtering (MAF in any population > 1%): __`r report_data$filter2_n`__ (__`r report_data$filter2_frac`__ % of all calls)
-3. dbSNP (non-clinically-related) filtering: __`r report_data$filter3_n`__ (__`r report_data$filter3_frac`__ % of all calls)
+1. Exclusion of variants found in ExAC (MAF in any population > `r report_data$maf_exclusion_threshold_exac`): __`r report_data$filter1_n`__ (__`r report_data$filter1_frac`__ % of all calls)
+2. Exclusion of variants found in 1000 Genomes Project (MAF in any population > `r report_data$maf_exclusion_threshold_1kg`): __`r report_data$filter2_n`__ (__`r report_data$filter2_frac`__ % of all calls)
+3. Exclusion of dbSNP (non-clinically-related) variants: __`r report_data$filter3_n`__ (__`r report_data$filter3_frac`__ % of all calls)
 
 ### Filtered call statistics
 

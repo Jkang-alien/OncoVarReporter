@@ -1,4 +1,5 @@
 `r library(deconstructSigs)`
+## Mutational signatures
 
 The set of somatic mutations observed in a tumor reflects the varied mutational processes that have been active during its life history, providing insights into the routes taken to carcinogenesis. Exogenous mutagens, such as tobacco smoke and ultraviolet light, and endogenous processes, such as APOBEC enzymatic family functional activity or DNA mismatch repair deficiency, result in characteristic patterns of mutation (i.e. distinct patterns of substitution types in specific seqence contexts). Importantly, recent studies show that mutational signatures could have significant clinical impact in certain tumor types [@Dong2016-hf; @Secrier2016-hc; @Kim2016-od] 
 
@@ -8,25 +9,12 @@ A total of __n = `r nrow(report_data$signature_call_set)`__ SNVs were used for t
 
 Given an input tumor profile and reference input signatures (i.e. [30 mutational signatures detected by Sanger/COSMIC](http://cancer.sanger.ac.uk/cosmic/signatures)), deconstructSigs iteratively infers the weighted contributions of each reference signature until an empirically chosen error threshold is reached. In the plots below, the _top panel_ is the tumor mutational profile displaying the fraction of mutations found in each trinucleotide context, the _middle panel_ is the reconstructed mutational profile created by multiplying the calculated weights by the signatures, and the _bottom panel_ is the error between the tumor mutational profile and reconstructed mutational profile. The piechart shows the relative contribution of each signature in the sample.
 
-```{r prepare_signature_calls,echo=F}
-mut_signature_contributions <- somvaR::signature_contributions_single_sample(report_data$signature_call_set, sample_name = report_data$sample_id, signatures.limit = report_data$signatures.limit)
-
-signature_columns <- as.numeric(stringr::str_replace(as.character(mut_signature_contributions$which_signatures_df[mut_signature_contributions$which_signatures_df$signature_id != 'unknown',]$signature_id),"S",""))
-
-weight_df <- data.frame('Signature_ID' = as.character(mut_signature_contributions$which_signatures_df$signature_id), 'Weight' = round(as.numeric(mut_signature_contributions$which_signatures_df$weight),digits=3), stringsAsFactors = F)
-
-cancer_types_aetiologies <- signatures_aetiologies[signature_columns,]
-cancer_types_aetiologies <- dplyr::left_join(cancer_types_aetiologies,weight_df,by=c("Signature_ID")) %>% dplyr::arrange(desc(Weight))
-cancer_types_aetiologies <- cancer_types_aetiologies[,c("Signature_ID","Weight","Cancer_types","Proposed_aetiology","Comments")]
-
-```
-
 ```{r sigplot, echo=F, fig.width=12,fig.height = 11}
-deconstructSigs::plotSignatures(mut_signature_contributions$which_signatures_obj)
+deconstructSigs::plotSignatures(report_data$signature_data$mut_signature_contributions$which_signatures_obj)
 ```
 
 ```{r sigpie, echo=F, fig.width=12,fig.height = 6}
-deconstructSigs::makePie(mut_signature_contributions$which_signatures_obj)
+deconstructSigs::makePie(report_data$signature_data$mut_signature_contributions$which_signatures_obj)
 ```
 
 <br><br>
@@ -36,6 +24,6 @@ deconstructSigs::makePie(mut_signature_contributions$which_signatures_obj)
 <br>
 ```{r aetiologies, echo=F}
 myOptions <- list(paging = F,pageLength=10, searching=F,caching=F)
-DT::datatable(cancer_types_aetiologies,options = myOptions, extensions = 'Responsive')
+DT::datatable(report_data$signature_data$signatures_cancertypes_aetiologies,options = myOptions, extensions = 'Responsive')
 ```
 <br>

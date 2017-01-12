@@ -8,9 +8,17 @@ generate_tier_tsv(tier1_variants, tier2_variants, tier3_variants,
   tier4_variants, tier5_variants, sample_id = "test")
 }
 \arguments{
-\item{sample_id}{Sample identifier}
+\item{tier1_variants}{df with tier 1 variants}
 
-\item{report_data}{report data structure generated from pcgr}
+\item{tier2_variants}{df with tier 2 variants}
+
+\item{tier3_variants}{df with tier 3 variants}
+
+\item{tier4_variants}{df with tier 4 variants}
+
+\item{tier5_variants}{df with tier 5 variants}
+
+\item{sample_id}{Sample identifier}
 }
 \value{
 tsv_variants data frame with tier-annotated list of variants for tab-separated output

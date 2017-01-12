@@ -15,6 +15,5 @@ The annotated variants are based on the following underlying tools/knowledge sou
 * [Cancer Hotspots](http://cancerhotspots.org) - a resource for statistically significant mutations in cancer (2016)
 * [UniProt/SwissProt KnowledgeBase 2016_09](http://www.uniprot.org) - resource on protein sequence and functional information (Sep 2016)
 * [Pfam v30](http://pfam.xfam.org) - database of protein families and domains (June 2016)
-* [Appris 2016_03.v15](http://appris.bioinfo.cnio.es/#/) - annotation of prinicipal human transcript isoforms database (March 2016)
 * [DGIdb](http://dgidb.genome.wustl.edu) - database of interactions betweeen antineoplastic drugs and human proteins (v2.22, February 2016)
 * [TSGene v2.0](http://bioinfo.mc.vanderbilt.edu/TSGene/) - tumor suppressor/oncogene database (November 2015)

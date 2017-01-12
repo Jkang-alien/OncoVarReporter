@@ -1,3 +1,5 @@
+## Sequencing coverage/QC
+
 - Sequencing type: __`r toupper(report_data$sequencing_approach)`__
 - Sequencing coverage numbers:
     * __Tumor__ : 

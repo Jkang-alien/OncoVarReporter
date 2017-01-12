@@ -1,3 +1,7 @@
+## Somatic CNA analysis
+
+A computational analysis pipeline for joint segmentation and allele-specific copy number analysis has been performed with [FACETS](https://sites.google.com/site/mskfacets/):
+
 <br><br>
 ![FACETS CNA profile](`r cnv_plot_facets_png`)
 <br>
