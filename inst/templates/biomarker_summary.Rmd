@@ -1,0 +1,7 @@
+
+```{r biomarker_summary, echo=FALSE}
+for(i in 1:nrow(report_data$biomarker_descriptions)){
+  desc <- as.character(report_data$biomarker_descriptions[i,]$description)
+  cat('  *',as.character(desc),sep=" ")
+}
+```

@@ -14,6 +14,7 @@ output:
     fig_height: 4
 params:
   tier1_report: FALSE
+  biomarker_descriptions: FALSE
   tier2_report: FALSE
   tier3_report: FALSE
   tier4_report: FALSE
@@ -60,6 +61,10 @@ print(report_data$sample_stats_plot_coding)
     * Tier 1A: __`r nrow(report_data$clinical_evidence_items_tier1A)`__ evidence items linked to specific amino acid changes
     * Tier 1B: __`r nrow(report_data$clinical_evidence_items_tier1B)`__ evidence items linked to codon alterations
     * Tier 1C: __`r nrow(report_data$clinical_evidence_items_tier1C)`__ evidence items linked to exon alterations
+<br>
+
+```{r conditional_print_b, child='biomarker_summary.Rmd', eval = biomarker_descriptions}
+```
 
 <br>
 ```{r conditional_print1, child='tier1.Rmd', eval = tier1_report}

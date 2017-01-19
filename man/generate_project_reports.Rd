@@ -7,7 +7,8 @@
 generate_project_reports(project_directory, strelka_snv_vcf_gz,
   mutect_snv_vcf_gz, strelka_indel_vcf_gz = NULL,
   project_sample_stats = NULL, signatures.limit = 10,
-  strong_calls_only = FALSE, project_name = "NCGC_tumor_exome")
+  strong_calls_only = FALSE, project_name = "NCGC_tumor_exome",
+  write_project_files = FALSE)
 }
 \arguments{
 \item{project_directory}{name of roject directory}
