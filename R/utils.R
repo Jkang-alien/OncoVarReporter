@@ -3,18 +3,22 @@ library(magrittr)
 library(deconstructSigs)
 library(data.table)
 library(ggplot2)
+library(rlogging)
+
 
 #' Function that retrieves relative estimates of known somatic signatures from a single tumor
 #'
-#' @param mut_data
-#' @param sample_name
-#' @param signatures.limit
+#' @param mut_data data frame with somatic mutations (VCF_SAMPLE_ID, CHROM, POS, REF, ALT)
+#' @param sample_name sample name
+#' @param signatures.limit max number of contributing signatures
 #'
 #' @export
 #'
-signature_contributions_single_sample <- function(mut_data, sample_name, signatures_limit = 10){
+signature_contributions_single_sample <- function(mut_data, sample_name, signatures.limit = 10){
+  n_muts = nrow(mut_data)
+  rlogging::message(paste0("Identifying weighted contributions of known mutational signatures using deconstructSigs (n = ",n_muts," SNVs)"))
   sigs.input <- deconstructSigs::mut.to.sigs.input(mut.ref = mut_data, sample.id = "VCF_SAMPLE_ID",chr = "CHROM",pos = "POS", ref = "REF", alt = "ALT")
-  sample_1 <- deconstructSigs::whichSignatures(tumor.ref = sigs.input, sample.id = sample_name, signatures.limit = signatures_limit, signatures.ref = signatures.cosmic,contexts.needed = T,tri.counts.method = 'exome')
+  sample_1 <- deconstructSigs::whichSignatures(tumor.ref = sigs.input, sample.id = sample_name, signatures.limit = signatures.limit, signatures.ref = signatures.cosmic,contexts.needed = T,tri.counts.method = 'exome')
   nonzero_signatures <- sample_1$weights[which(colSums(sample_1$weights != 0) > 0)]
   n <- 1
   signature_contributions_df <- NULL
@@ -27,15 +31,17 @@ signature_contributions_single_sample <- function(mut_data, sample_name, signatu
   return(list(which_signatures_obj = sample_1, which_signatures_df = signature_contributions_df))
 }
 
-#' Function that plots call numbers
+#' Function that generate cancer genome reports for a project cohort
 #'
-#' @param project_directory name of roject directory
+#' @param project_directory name of project directory
 #' @param strelka_snv_vcf_gz name of bgzipped VCF file with annotated Strelka SNVs
 #' @param mutect_snv_vcf_gz name of bgzipped VCF file with annotated MuTect SNVs
 #' @param strelka_indel_vcf_gz name of bgzipped VCF file with annotated Strelka indels
 #' @param project_sample_stats sample_stats data frame
 #' @param signatures.limit Number of signatures to limit mutational signature analysis
 #' @param strong_calls_only Logical indicating if report is based on strong calls only or all calls
+#' @param project_name Name of project
+#' @param write_project_files Logical indicating if global, cohort-levels files are to be printed
 #'
 #' @return p
 #' @export
@@ -59,7 +65,7 @@ generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mute
   project_biomarkers <- NULL
 
   for(sample_id in unique(vcf_data_df_strelka$VCF_SAMPLE_ID)){
-    cat(sample_id,"\n")
+    rlogging::message(paste0("Processing sample ",sample_id))
     tumor_id <- unlist(stringr::str_split(sample_id,"_",2))[2]
     control_id <- unlist(stringr::str_split(sample_id,"_",2))[1]
 
@@ -132,22 +138,22 @@ generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mute
                                                          signatures.limit = signatures.limit)
 
     if(!is.null(report_data$tsv_variants)){
-      #write.table(report_data$tsv_variants,file=tier_tsv_fname, sep="\t",col.names = T,row.names = F,quote = F)
+      write.table(report_data$tsv_variants,file=tier_tsv_fname, sep="\t",col.names = T,row.names = F,quote = F)
       project_tier_variants <- rbind(project_tier_variants, report_data$tsv_variants)
     }
     if(!is.null(report_data$tsv_biomarkers)){
       project_biomarkers <- rbind(project_biomarkers, report_data$tsv_biomarkers)
       write.table(report_data$tsv_biomarkers,file=biomarker_tsv_fname, sep="\t",col.names = T,row.names = F,quote = F)
     }
-    return(0)
 
     if(!is.null(report_data$signature_data)){
-      sample_mutational_signatures <- report_data$signature_data$signatures_cancertypes_aetiologies
-      sample_mutational_signatures$SampleID <- sample_id
-      sample_mutational_signatures <- dplyr::select(sample_mutational_signatures,-Comments)
-      write.table(sample_mutational_signatures,file=msig_tsv_fname, sep="\t",col.names = T,row.names = F,quote = F)
-      project_mutational_signatures <- rbind(project_mutational_signatures, sample_mutational_signatures)
-
+      if(length(report_data$signature_data) > 1){
+        sample_mutational_signatures <- report_data$signature_data$signatures_cancertypes_aetiologies
+        sample_mutational_signatures$SampleID <- sample_id
+        sample_mutational_signatures <- dplyr::select(sample_mutational_signatures,-Comments)
+        write.table(sample_mutational_signatures,file=msig_tsv_fname, sep="\t",col.names = T,row.names = F,quote = F)
+        project_mutational_signatures <- rbind(project_mutational_signatures, sample_mutational_signatures)
+      }
     }
     report_data$sequencing_approach <- sample_coverage_statistics$sequencing_approach
     report_data$sample_id <- sample_id
@@ -205,16 +211,14 @@ generate_project_reports <- function(project_directory, strelka_snv_vcf_gz, mute
     tier4_report <- report_data$tier4_report
     tier5_report <- report_data$tier5_report
     signature_report <- report_data$signature_report
-    if(signature_report == FALSE){
-      missing_signature_data <- TRUE
-    }
+    missing_signature_data <- report_data$missing_signature_data
     show_data_sources <- TRUE
 
     if(strong_calls_only == TRUE){
-      rmarkdown::render(system.file("templates","report_strong.Rmd", package="OncoVarReporter"), output_file = paste0(sample_id,'.strong.tumor_report.html'), output_dir = project_directory, params = list(signature_report = signature_report, tier1_report = tier1_report, tier2_report = tier2_report, tier3_report = tier3_report, tier4_report = tier4_report, tier5_report = tier5_report, cnv_report_tsgene_loss = cnv_report_tsgene_loss, cnv_report_oncogene_gain = cnv_report_oncogene_gain, cnv_plot = cnv_plot, cnv_report_segments = cnv_report_segments, cnv_report_biomarkers = cnv_report_biomarkers, show_coverage_stats = show_coverage_stats, show_data_sources = show_data_sources),quiet=T)
+      rmarkdown::render(system.file("templates","report_strong.Rmd", package="OncoVarReporter"), output_file = paste0(sample_id,'.strong.tumor_report.html'), output_dir = project_directory, params = list(signature_report = signature_report, tier1_report = tier1_report, tier2_report = tier2_report, tier3_report = tier3_report, tier4_report = tier4_report, tier5_report = tier5_report, cnv_report_tsgene_loss = cnv_report_tsgene_loss, cnv_report_oncogene_gain = cnv_report_oncogene_gain, cnv_plot = cnv_plot, cnv_report_segments = cnv_report_segments, cnv_report_biomarkers = cnv_report_biomarkers, signature_report = signature_report, missing_signature_data = missing_signature_data, show_coverage_stats = show_coverage_stats, show_data_sources = show_data_sources),quiet=T)
     }
     else{
-      rmarkdown::render(system.file("templates","report.Rmd", package="OncoVarReporter"), output_file = paste0(sample_id,'.tumor_report.html'), output_dir = project_directory, params = list(signature_report = signature_report, tier1_report = tier1_report, biomarker_descriptions = biomarker_descriptions, tier2_report = tier2_report, tier3_report = tier3_report, tier4_report = tier4_report, tier5_report = tier5_report, cnv_report_tsgene_loss = cnv_report_tsgene_loss, cnv_report_oncogene_gain = cnv_report_oncogene_gain, cnv_plot = cnv_plot, cnv_report_segments = cnv_report_segments, cnv_report_biomarkers = cnv_report_biomarkers, show_coverage_stats = show_coverage_stats, show_data_sources = show_data_sources),quiet=T)
+      rmarkdown::render(system.file("templates","report.Rmd", package="OncoVarReporter"), output_file = paste0(sample_id,'.tumor_report.html'), output_dir = project_directory, params = list(signature_report = signature_report, tier1_report = tier1_report, biomarker_descriptions = biomarker_descriptions, tier2_report = tier2_report, tier3_report = tier3_report, tier4_report = tier4_report, tier5_report = tier5_report, cnv_report_tsgene_loss = cnv_report_tsgene_loss, cnv_report_oncogene_gain = cnv_report_oncogene_gain, cnv_plot = cnv_plot, cnv_report_segments = cnv_report_segments, cnv_report_biomarkers = cnv_report_biomarkers, signature_report = signature_report, missing_signature_data = missing_signature_data, show_coverage_stats = show_coverage_stats, show_data_sources = show_data_sources),quiet=T)
     }
   }
 
@@ -272,6 +276,7 @@ plot_call_statistics <- function(sample_calls, title = 'Title'){
 
 cnv_segment_annotation <- function(cnv_file, format = 'facets'){
 
+  rlogging::message(paste0('Annotating copy number segment file (',cnv_file,')'))
   cnv_df <- NULL
   if(format == 'facets'){
     cnv_df <- read.table(file=cnv_file,header = T,stringsAsFactors = F,comment.char="")
@@ -414,7 +419,7 @@ cnv_segment_annotation <- function(cnv_file, format = 'facets'){
 #'
 generate_biomarker_tsv <- function(tier1_variants, sample_id = 'test'){
 
-  bm_tags <- c('BM_CLINICAL_SIGNIFICANCE','BM_EVIDENCE_LEVEL','BM_EVIDENCE_TYPE','BM_EVIDENCE_DIRECTION','BM_DISEASE_NAME', 'BM_DRUG_NAMES','BM_RATING')
+  bm_tags <- c('BM_CLINICAL_SIGNIFICANCE','BM_EVIDENCE_LEVEL','BM_EVIDENCE_TYPE','BM_EVIDENCE_DIRECTION','BM_DISEASE_NAME', 'BM_DRUG_NAMES','BM_RATING','BM_CITATION')
   all_biomarker_tags <- c(c('GENOMIC_CHANGE','GENOME_VERSION','VCF_SAMPLE_ID','SYMBOL','CONSEQUENCE'),bm_tags)
   tier1_tsv <- tier1_variants
   tsv_biomarkers <- NULL
@@ -423,8 +428,13 @@ generate_biomarker_tsv <- function(tier1_variants, sample_id = 'test'){
     tier1_tsv <- tier1_tsv %>% dplyr::select(dplyr::one_of(all_biomarker_tags))
     tier1_tsv$TIER <- 'TIER 1'
     tier1_tsv$TIER_DESCRIPTION <- 'Clinical biomarker - prognostic/diagnostic/drug sensitivity/resistance'
-    tsv_biomarkers <- tier1_tsv
+
+    tmp2 <- as.data.frame(tier1_tsv %>% dplyr::rowwise() %>% dplyr::mutate(BM_CITATION2 = paste(unlist(stringr::str_replace_all(stringr::str_match_all(BM_CITATION,">.+<"),"^>|<$","")),collapse =";")))
+
+    tier1_tsv$BM_CITATION <- tmp2$BM_CITATION2
+    tsv_biomarkers <- tier1_tsv %>% dplyr::distinct()
   }
+
   return(tsv_biomarkers)
 }
 
@@ -443,7 +453,8 @@ generate_biomarker_tsv <- function(tier1_variants, sample_id = 'test'){
 #'
 generate_tier_tsv <- function(tier1_variants, tier2_variants, tier3_variants, tier4_variants, tier5_variants, sample_id = 'test'){
 
-  bm_tags <- c('BM_CLINICAL_SIGNIFICANCE','BM_EVIDENCE_LEVEL','BM_EVIDENCE_TYPE','BM_EVIDENCE_DIRECTION','BM_DISEASE_NAME','BM_DRUG_NAMES','BM_RATING')
+  rlogging::message("Generating tiered set of result variants for output in tab-separated values (TSV) file")
+  bm_tags <- c('BM_CLINICAL_SIGNIFICANCE','BM_EVIDENCE_LEVEL','BM_EVIDENCE_TYPE','BM_EVIDENCE_DIRECTION','BM_DISEASE_NAME','BM_DRUG_NAMES','BM_RATING','BM_CITATION')
   tier1_tsv <- tier1_variants
   tsv_variants <- NULL
   if(nrow(tier1_tsv) > 0){
@@ -511,6 +522,7 @@ generate_tier_tsv <- function(tier1_variants, tier2_variants, tier3_variants, ti
 #'
 generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signature_analysis = 50, signatures.limit = 6){
 
+  rlogging::message("Generating data for tiered cancer genome report")
   tier1_report <- FALSE
   tier2_report <- FALSE
   tier3_report <- FALSE
@@ -526,10 +538,14 @@ generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signa
   variants_tier5_display <- data.frame()
 
   signature_report <- FALSE
+  missing_signature_data <- FALSE
   signature_call_set <- data.frame()
 
   sample_calls_coding <- sample_calls %>% dplyr::filter(stringr::str_detect(CONSEQUENCE,"stop_gained|stop_lost|start_lost|frameshift_variant|missense_variant|splice_donor|splice_acceptor|inframe_deletion|inframe_insertion"))
+  rlogging::message(paste0("Number of coding variants: ",nrow(sample_calls_coding)))
   sample_calls_noncoding <- sample_calls %>% dplyr::filter(!stringr::str_detect(CONSEQUENCE,"stop_gained|stop_lost|start_lost|frameshift_variant|missense_variant|splice_donor|splice_acceptor|inframe_deletion|inframe_insertion"))
+  rlogging::message(paste0("Number of noncoding variants: ",nrow(sample_calls_noncoding)))
+
 
   sample_stats_plot_all <- OncoVarReporter::plot_call_statistics(sample_calls,"Somatic calls - all")
   sample_stats_plot_coding <- OncoVarReporter::plot_call_statistics(sample_calls_coding,"Somatic calls - coding")
@@ -550,7 +566,7 @@ generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signa
       signature_call_set$VCF_SAMPLE_ID <- sample_id
       signature_report <- TRUE
 
-      mut_signature_contributions <- OncoVarReporter::signature_contributions_single_sample(signature_call_set, sample_name = sample_id, signatures_limit = signatures.limit)
+      mut_signature_contributions <- OncoVarReporter::signature_contributions_single_sample(signature_call_set, sample_name = sample_id, signatures.limit = signatures.limit)
 
       signature_columns <- as.numeric(stringr::str_replace(as.character(mut_signature_contributions$which_signatures_df[mut_signature_contributions$which_signatures_df$signature_id != 'unknown',]$signature_id),"S",""))
 
@@ -560,7 +576,26 @@ generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signa
       signatures_cancertypes_aetiologies <- dplyr::left_join(cancertypes_aetiologies,weight_df,by=c("Signature_ID")) %>% dplyr::arrange(desc(Weight))
       signatures_cancertypes_aetiologies <- signatures_cancertypes_aetiologies[,c("Signature_ID","Weight","Cancer_types","Proposed_aetiology","Comments")]
 
+      unknown_df <- dplyr::filter(mut_signature_contributions$which_signatures_df, signature_id == 'unknown')
+      unknown_df <- dplyr::rename(unknown_df, Signature_ID = signature_id, Weight = weight)
+      unknown_df$Weight <- round(as.numeric(unknown_df$Weight),digits=3)
+      unknown_df$Cancer_types <- NA
+      unknown_df$Proposed_aetiology <- NA
+      unknown_df$Comments <- NA
+
+      signatures_cancertypes_aetiologies <- rbind(signatures_cancertypes_aetiologies, unknown_df) %>% dplyr::arrange(desc(Weight))
+
       signature_data <- list('signature_call_set' = signature_call_set, 'mut_signature_contributions' = mut_signature_contributions, 'signatures_cancertypes_aetiologies' = signatures_cancertypes_aetiologies)
+
+    }
+    else{
+      if(nrow(sample_calls[sample_calls$VARIANT_CLASS == 'SNV',]) > 0){
+        signature_call_set <- sample_calls[sample_calls$VARIANT_CLASS == 'SNV',]
+        signature_call_set <- dplyr::filter(signature_call_set, CHROM != 'MT')
+      }
+      rlogging::message(paste0("Too few variants (n = ",nrow(signature_call_set),") for reconstruction of mutational signatures by deconstructSigs"))
+      missing_signature_data <- TRUE
+      signature_data <- list('signature_call_set' = signature_call_set)
 
     }
   }
@@ -659,7 +694,7 @@ generate_report_data <- function(sample_calls, sample_id = NULL, minimum_n_signa
 
   tsv_biomarkers <- OncoVarReporter::generate_biomarker_tsv(variants_tier1, sample_id = sample_id)
 
-  report_data <- list('sample_stats_plot_all' = sample_stats_plot_all, 'sample_stats_plot_coding' = sample_stats_plot_coding,'tier1_report' = tier1_report, 'tier2_report' = tier2_report, 'tier3_report' = tier3_report, 'tier4_report' = tier4_report, 'tier5_report' = tier5_report, 'clinical_evidence_items_tier1A' = clinical_evidence_items_tier1A$clinical_evidence_items, 'clinical_evidence_items_tier1B' = clinical_evidence_items_tier1B$clinical_evidence_items, 'clinical_evidence_items_tier1C' = clinical_evidence_items_tier1C$clinical_evidence_items, 'biomarker_descriptions' = biomarker_descriptions, 'tsv_variants' = tsv_variants, 'tsv_biomarkers' = tsv_biomarkers, 'variants_tier1_display' = variants_tier1_display, 'variants_tier2_display' = variants_tier2_display, 'variants_tier3_display' = variants_tier3_display, 'variants_tier4_display' = variants_tier4_display,'variants_tier5_display' = variants_tier5_display, 'signature_report' = signature_report, 'signature_data' = signature_data, 'signatures.limit' = signatures.limit, 'sample_name' = sample_id)
+  report_data <- list('sample_stats_plot_all' = sample_stats_plot_all, 'sample_stats_plot_coding' = sample_stats_plot_coding,'tier1_report' = tier1_report, 'tier2_report' = tier2_report, 'tier3_report' = tier3_report, 'tier4_report' = tier4_report, 'tier5_report' = tier5_report, 'clinical_evidence_items_tier1A' = clinical_evidence_items_tier1A$clinical_evidence_items, 'clinical_evidence_items_tier1B' = clinical_evidence_items_tier1B$clinical_evidence_items, 'clinical_evidence_items_tier1C' = clinical_evidence_items_tier1C$clinical_evidence_items, 'biomarker_descriptions' = biomarker_descriptions, 'tsv_variants' = tsv_variants, 'tsv_biomarkers' = tsv_biomarkers, 'variants_tier1_display' = variants_tier1_display, 'variants_tier2_display' = variants_tier2_display, 'variants_tier3_display' = variants_tier3_display, 'variants_tier4_display' = variants_tier4_display,'variants_tier5_display' = variants_tier5_display, 'signature_report' = signature_report, 'signature_data' = signature_data, 'missing_signature_data' = missing_signature_data, 'signatures.limit' = signatures.limit, 'sample_name' = sample_id)
 
 
   return(report_data)
@@ -861,6 +896,7 @@ postprocess_vranges_info <- function(vr){
 #'
 add_pfam_domain_links <- function(vcf_data_df){
 
+  rlogging::message("Extending annotation descriptions related to PFAM protein domains")
   if("DOMAINS" %in% colnames(vcf_data_df) & "VAR_ID" %in% colnames(vcf_data_df)){
     pfam_df <- dplyr::select(vcf_data_df,DOMAINS,VAR_ID) %>% dplyr::filter(!is.na(DOMAINS))
     if(nrow(pfam_df) == 0){
@@ -1022,14 +1058,14 @@ get_clinical_associations_civic_cbmdb <- function(vcf_data_df, mapping = 'exact'
     unique_variants <- clinical_evidence_items %>% dplyr::select(SYMBOL,CONSEQUENCE,PROTEIN_CHANGE,CDS_CHANGE) %>% dplyr::distinct()
     clinical_evidence_items <- clinical_evidence_items %>% dplyr::arrange(EVIDENCE_LEVEL,RATING)
     biomarker_descriptions <- biomarker_descriptions %>% dplyr::filter(!is.na(description)) %>% dplyr::distinct()
-    cat(nrow(clinical_evidence_items),' clinical evidence items found .. (',nrow(unique_variants),' unique variants), mapping = ',mapping,'\n',sep="")
-    cat('Underlying variants:','\n')
+    rlogging::message(paste0(nrow(clinical_evidence_items),' clinical evidence item(s) found .. (',nrow(unique_variants),' unique variant(s)), mapping = ',mapping))
+    rlogging::message('Underlying variant(s):')
     for(i in 1:nrow(unique_variants)){
-      cat(paste(unique_variants[i,],collapse=" "),'\n')
+      rlogging::message(paste(unique_variants[i,],collapse=" "))
     }
   }
   else{
-    cat(nrow(clinical_evidence_items),' clinical evidence items found .. mapping = ',mapping,'\n')
+    rlogging::message(paste0(nrow(clinical_evidence_items),' clinical evidence item(s) found .. mapping = ',mapping))
   }
 
   eitems_bm_descriptions <- list('clinical_evidence_items' = clinical_evidence_items, 'biomarker_descriptions' = biomarker_descriptions)
@@ -1077,6 +1113,7 @@ add_read_support <- function(vcf_data_df){
 #'
 add_swissprot_feature_descriptions <- function(vcf_data_df){
 
+  rlogging::message("Extending annotation descriptions related to UniprotKB/SwissProt protein features")
   swissprot_features$UNIPROT_FEATURE <- paste(paste(swissprot_features$uniprot_id,swissprot_features$feature_type,sep=":"),paste(swissprot_features$aa_start,swissprot_features$aa_stop,sep="-"),sep=":")
   swissprot_features$PF <- paste(paste(swissprot_features$type_description,paste(swissprot_features$aa_start,swissprot_features$aa_stop,sep="-"),sep=":"),swissprot_features$description,sep=":")
 
@@ -1115,10 +1152,23 @@ add_swissprot_feature_descriptions <- function(vcf_data_df){
 #' @export
 #'
 get_calls <- function(vcf_gz_file){
+  rlogging::message(paste0("Reading and parsing VEP/vcfanno-annotated VCF file - ",vcf_gz_file))
   vcf_data_vr <- VariantAnnotation::readVcfAsVRanges(vcf_gz_file,genome = "hg19")
+  #if ("^GT$" %in% colnames(vcf_data_df)){
+    #vcf_data_vr <- vcf_data_vr[!is.na(vcf_data_vr$GT) & !(vcf_data_vr$GT == '.'),]
+  #}
   vcf_data_vr <- vcf_data_vr[!is.na(vcf_data_vr$GT) & !(vcf_data_vr$GT == '.'),]
   vcf_data_vr <- OncoVarReporter::postprocess_vranges_info(vcf_data_vr)
   vcf_data_df <- as.data.frame(vcf_data_vr)
+  rlogging::message(paste0("Number of variants read: ",nrow(vcf_data_df)))
+  if(any(grepl(paste0("VARIANT_CLASS$"),names(vcf_data_df)))){
+    n_snvs <- nrow(vcf_data_df[vcf_data_df$VARIANT_CLASS == 'SNV',])
+    n_deletions <- nrow(vcf_data_df[vcf_data_df$VARIANT_CLASS == 'deletion',])
+    n_insertions <- nrow(vcf_data_df[vcf_data_df$VARIANT_CLASS == 'insertion',])
+    rlogging::message(paste0("Number of SNVs: ",n_snvs))
+    rlogging::message(paste0("Number of deletions: ",n_deletions))
+    rlogging::message(paste0("Number of insertions ",n_insertions))
+  }
   if(nrow(vcf_data_df) == 0){
     for(col in c('GENOME_VERSION','GENOMIC_CHANGE','PROTEIN_DOMAIN','PROTEIN_FEATURE','OTHER_LITERATURE_DOCM','OTHER_DISEASE_DOCM','GENENAME','GENE_NAME','CLINVAR_TRAITS_ALL','CLINVAR','COSMIC','DBSNP','ANTINEOPLASTIC_DRUG_INTERACTIONS')){
       vcf_data_df[col] <- character(nrow(vcf_data_df))
@@ -1140,6 +1190,7 @@ get_calls <- function(vcf_gz_file){
   vcf_data_df <- OncoVarReporter::add_pfam_domain_links(vcf_data_df)
   vcf_data_df <- OncoVarReporter::add_swissprot_feature_descriptions(vcf_data_df)
   vcf_data_df <- OncoVarReporter::add_read_support(vcf_data_df)
+  rlogging::message("Extending annotation descriptions related to Database of Curated Mutations (DoCM)")
   vcf_data_df <- dplyr::left_join(vcf_data_df, docm_literature, by=c("VAR_ID"))
 
   gencode_xref <- dplyr::rename(gene_xref, Gene = ensembl_gene_id, GENENAME = name, ENTREZ_ID = entrezgene)
@@ -1152,6 +1203,7 @@ get_calls <- function(vcf_gz_file){
 
   tmp <- dplyr::select(clinvar, CLINVAR_TRAITS_ALL, CLINVAR_MSID)
   if ("CLINVAR_MSID" %in% colnames(vcf_data_df)){
+    rlogging::message("Extending annotation descriptions related to ClinVar")
     vcf_data_df <- dplyr::left_join(vcf_data_df,tmp,by=c("CLINVAR_MSID"))
   }
   if("COSMIC_SITE_HISTOLOGY" %in% colnames(vcf_data_df)){
@@ -1218,6 +1270,8 @@ get_calls <- function(vcf_gz_file){
 
 filter_db_germline_variants <- function(var_df, pop='european',dbquery = '1KG', min_af = 0.05){
 
+  rlogging::message(paste0('Filtering common germline variants (db = ',dbquery,', minimum minor allele frequency = ',min_af,', population = ',pop,')'))
+  n_pre_filtering <- nrow(var_df)
   if(pop == 'nor'){
     if(any(grepl(paste0("^AF_NOR$"),names(var_df)))){
       var_df <- var_df %>% dplyr::filter(is.na(AF_NOR) | AF_NOR < min_af)
@@ -1255,6 +1309,10 @@ filter_db_germline_variants <- function(var_df, pop='european',dbquery = '1KG', 
       }
     }
   }
+  n_post_filtering <- nrow(var_df)
+  fraction_filtered <- round(as.numeric(((n_pre_filtering - n_post_filtering) / n_pre_filtering) * 100),digits = 2)
+  n_filtered <- n_pre_filtering - n_post_filtering
+  rlogging::message('A total of n = ',n_filtered,' variants were_removed (',fraction_filtered,'%)')
   return(var_df)
 }
 

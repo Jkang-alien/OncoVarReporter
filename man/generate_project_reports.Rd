@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{generate_project_reports}
 \alias{generate_project_reports}
-\title{Function that plots call numbers}
+\title{Function that generate cancer genome reports for a project cohort}
 \usage{
 generate_project_reports(project_directory, strelka_snv_vcf_gz,
   mutect_snv_vcf_gz, strelka_indel_vcf_gz = NULL,
@@ -11,7 +11,7 @@ generate_project_reports(project_directory, strelka_snv_vcf_gz,
   write_project_files = FALSE)
 }
 \arguments{
-\item{project_directory}{name of roject directory}
+\item{project_directory}{name of project directory}
 
 \item{strelka_snv_vcf_gz}{name of bgzipped VCF file with annotated Strelka SNVs}
 
@@ -24,11 +24,15 @@ generate_project_reports(project_directory, strelka_snv_vcf_gz,
 \item{signatures.limit}{Number of signatures to limit mutational signature analysis}
 
 \item{strong_calls_only}{Logical indicating if report is based on strong calls only or all calls}
+
+\item{project_name}{Name of project}
+
+\item{write_project_files}{Logical indicating if global, cohort-levels files are to be printed}
 }
 \value{
 p
 }
 \description{
-Function that plots call numbers
+Function that generate cancer genome reports for a project cohort
 }
 

@@ -1,3 +1,5 @@
-<br>
-The number of SNV calls (n = `r nrow(sample_calls)`) is too limited for a mutational signature analysis to be performed.
+
+## Mutational signatures
+
+The number of strong SNV calls (n = `r nrow(report_data$signature_data$signature_call_set)`) is too limited for a mutational signature analysis to be performed.
 <br>

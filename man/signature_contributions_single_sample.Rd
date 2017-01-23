@@ -5,10 +5,14 @@
 \title{Function that retrieves relative estimates of known somatic signatures from a single tumor}
 \usage{
 signature_contributions_single_sample(mut_data, sample_name,
-  signatures_limit = 10)
+  signatures.limit = 10)
 }
 \arguments{
-\item{signatures.limit}{}
+\item{mut_data}{data frame with somatic mutations (VCF_SAMPLE_ID, CHROM, POS, REF, ALT)}
+
+\item{sample_name}{sample name}
+
+\item{signatures.limit}{max number of contributing signatures}
 }
 \description{
 Function that retrieves relative estimates of known somatic signatures from a single tumor
